@@ -8,7 +8,6 @@ namespace Mal {
 
     public abstract class MalType { }
 
-
     public class MalList : MalType, IEnumerable<MalType> {
 
         public MalList() {
@@ -43,6 +42,15 @@ namespace Mal {
     public abstract class MalAtom<T> : MalType {
         public MalAtom(T value) => Value = value;
         public T Value {get;set;}
+
+        public override bool Equals(object? obj) {
+            return obj is MalAtom<T> atom &&
+                   EqualityComparer<T>.Default.Equals(Value, atom.Value);
+        }
+
+        public override int GetHashCode() {
+            return HashCode.Combine(Value);
+        }
     }
 
     public class MalNumber : MalAtom<double> {
@@ -55,19 +63,16 @@ namespace Mal {
 
     public class MalFunction : MalType {
 
-        private readonly Func<double, double, double> _fn;
+        private readonly Func<MalType[], MalType> _fn;
         public MalSymbol Name {get; init;}
 
-        public MalFunction(MalSymbol name, Func<double, double, double> fn ) {
+        public MalFunction(MalSymbol name, Func<MalType[], MalType> fn ) {
             Name = name;
             _fn = fn;
         }
 
-        public MalType Eval(MalList args) {
-            MalNumber a = args[0] as MalNumber ?? throw new MalError("Argument isn't a number");
-            MalNumber b = args[1] as MalNumber ?? throw new MalError("Argument isn't a number");
-
-            return new MalNumber(_fn(a.Value, b.Value));
+        public MalType Eval(MalType[] args) {
+            return _fn(args);
         }
     }
 }
