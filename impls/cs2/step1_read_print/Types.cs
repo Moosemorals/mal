@@ -19,10 +19,10 @@ namespace Mal {
         public override string? ToString() => Printer.PrStr(this);
     }
 
-    public class MalAtom : MalType {
-        public MalAtom(object value) => Value = value;
-        public object Value {get;set;}
+    public abstract class MalAtom<T> : MalType {
+        public MalAtom(T value) => Value = value;
+        public T Value {get;set;}
     }
 
-
+    public class MalNumber : MalAtom<double> {}
 }
