@@ -14,7 +14,6 @@ namespace Mal {
             _tokens = new List<Token>(tokens);
         }
 
-
         private Token Peek() {
             return _tokens[_current];
         }
@@ -23,63 +22,70 @@ namespace Mal {
             return _tokens[_current++];
         }
 
-        internal MalType ReadList() {
-            MalList list = new();
+        internal MalValue ReadList(TokenType endList) {
+            MalSequence seq = endList == TokenType.RightParen ? new MalList() : new MalVector();
             while (true) {
                 Token next = Peek();
-                // Console.WriteLine($"List {next} {list}");
                 if (next.Type == TokenType.EOF) {
                     throw new MalError($"Missing closing bracket line {next.Line}");
-                } else if (next.Type == TokenType.RightParen) {
-                    // Consume close bracket
+                } else if (next.Type == endList) {
+                    // Consume close token
                     Advance();
-                    return list;
+                    return seq;
                 } else {
-                    list.Add(ReadForm());
+                    seq.Add(ReadForm());
                 }
             }
         }
 
-        internal MalType ReadAtom() {
+        internal MalValue ReadAtom() {
             Token next = Advance();
-            // Console.WriteLine($"Atom {next}");
             if (next.Type == TokenType.Number) {
-                if (next.Literal is double) {
-                    return new MalNumber((double) next.Literal);
+                if (next.Literal is double d) {
+                    return new MalNumber(d);
                 } else {
-                    throw new MalError("Missing literal value");
+                    throw new MalError("Missing number literal");
                 }
+            } else if (next.Type == TokenType.String) {
+                if (next.Literal is string s) {
+                    return new MalString(s);
+                } else {
+                    throw new MalError("Missing string literal");
+                }
+            } else if (next.Type == TokenType.True) {
+                return MalBool.True;
+            } else if (next.Type == TokenType.False) {
+                return MalBool.False;
+            } else if (next.Type == TokenType.Nil) {
+                return MalNil.Nil;
             } else {
-                return new MalSymbol((string)next.Lexeme);
+                return new MalSymbol((string) next.Lexeme);
             }
         }
 
-        internal MalType ReadForm() {
-            // Console.WriteLine($"For1 {Peek()}");
+        internal MalValue ReadForm() {
             if (Peek().Type == TokenType.LeftParen) {
-                Token next = Advance();
-                // Console.WriteLine($"For2 {next}");
-                return ReadList();
+                Advance();
+                return ReadList(TokenType.RightParen);
+            } else if (Peek().Type == TokenType.LeftSquare) {
+                Advance();
+                return ReadList(TokenType.RightSquare);
             } else {
                 return ReadAtom();
             }
         }
 
-        internal static MalType ReadStr(string input) {
-            Reader reader = new Reader(new Scanner(input).ScanTokens());
+        internal static MalValue ReadStr(string input) {
+            return new Reader(new Scanner(input).ScanTokens()).ReadForm();
 
-            return reader.ReadForm();
         }
     }
 
     internal class Scanner {
-
         private const string Specials = "[]{}()`'~^@,;\"";
-
         private int _start = 0;
         private int _current = 0;
         private int _line = 1;
-
         private readonly string _source;
 
         internal Scanner(string source) {
@@ -142,10 +148,12 @@ namespace Mal {
         }
 
         private Token MakeToken(TokenType type) => MakeToken(type, null);
+
         private Token MakeToken(TokenType type, object? literal) {
-            string lexeme = _source.Substring(_start, _current - _start);
+            string lexeme = _source[_start.._current];
             return new Token(type, lexeme, literal, _line);
         }
+
         private Token Number() {
             if (Peek() == '-') {
                 Advance();
@@ -158,27 +166,37 @@ namespace Mal {
             if (Peek() == '.' && IsDigit(PeekNext())) {
                 // Consume decimal point
                 Advance();
-
                 while (IsDigit(Peek())) {
                     Advance();
                 }
             }
 
-            if (double.TryParse(_source.Substring(_start, _current - _start), out double literal)) {
+            if (double.TryParse(_source[_start.._current], out double literal)) {
                 return MakeToken(TokenType.Number, literal);
             }
 
             throw new MalError("Unparsable Number");
         }
+
         private Token String() {
             StringBuilder literal = new();
             while (!IsAtEnd && Peek() != '"') {
                 if (Peek() == '\n') {
                     _line += 1;
                 } else if (Peek() == '\\') {
-                    // Consume backslash
                     Advance();
-                    // Add escaped character to string
+                    if (IsAtEnd) {
+                        continue;
+                    }
+                    char c = Advance();
+                    if (c == 'n') {
+                        literal.Append('\n');
+                    } else if (c == '\\' || c == '"') {
+                        literal.Append(c);
+                    } else {
+                        literal.Append(new char[] { '\\', c} );
+                    }
+                    continue;
                 }
 
                 // Add next character to string
@@ -201,23 +219,22 @@ namespace Mal {
                 Advance();
             }
 
-            string lexeme = _source.Substring(_start, _current - _start);
-            switch (lexeme) {
-                case "true": return MakeToken(TokenType.True);
-                case "false": return MakeToken(TokenType.False);
-                case "nil": return MakeToken(TokenType.Nil);
-                default:
-                    return MakeToken(TokenType.Symbol);
-            }
+            string lexeme = _source[_start.._current];
+            return lexeme switch {
+                "true" => MakeToken(TokenType.True),
+                "false" => MakeToken(TokenType.False),
+                "nil" => MakeToken(TokenType.Nil),
+                _ => MakeToken(TokenType.Symbol),
+            };
         }
 
 
         private char Advance() => _source[_current++];
         private bool IsAtEnd => _current >= _source.Length;
-        private bool IsSpecial(char c) => Specials.Contains(c);
-        private bool IsNotSpecial(char c) => !IsSpecial(c) && !IsWhitespace(c);
-        private bool IsWhitespace(char c) => c == ' ' || c == '\r' || c == '\n' || c == '\t';
-        private bool IsDigit(char c) => c >= '0' && c <= '9';
+        private static bool IsSpecial(char c) => Specials.Contains(c);
+        private static bool IsNotSpecial(char c) => !IsSpecial(c) && !IsWhitespace(c);
+        private static bool IsWhitespace(char c) => c == ' ' || c == '\r' || c == '\n' || c == '\t';
+        private static bool IsDigit(char c) => c >= '0' && c <= '9';
         private bool Match(char expected) {
             if (IsAtEnd || Peek() != expected) {
                 return false;
@@ -236,6 +253,4 @@ namespace Mal {
         RightBrace, RightParen, RightSquare, SingleQuote, String, Symbol, Tilde,
         TildeAt, True,
     }
-
-
 }

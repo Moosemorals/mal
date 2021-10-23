@@ -3,45 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Mal {
-    class Program {
+    internal class Program {
 
-        private readonly Env _outer = new Env(null);
-
-        private MalFunction MathFunctionBuilder(string name, Func<double, double, double> fn) {
-            return new MalFunction(
-                new MalSymbol(name),
-                args => {
-                    MalNumber a = args[0] as MalNumber ?? throw new MalError("Can only operate on numbers");
-                    MalNumber b = args[1] as MalNumber ?? throw new MalError("Can only operate on numbers");
-                    return new MalNumber(fn(a.Value, b.Value));
-                }
-            );
+        public Program() {
+            Core.Init(_outer);
         }
 
-        private void Init() {
+        private readonly Env _outer = new(null, null, null);
 
-            MalFunction add = MathFunctionBuilder("+", (a, b) => a + b);
-            MalFunction sub = MathFunctionBuilder("-", (a, b) => a - b);
-            MalFunction mul = MathFunctionBuilder("*", (a, b) => a * b);
-            MalFunction div = MathFunctionBuilder("/", (a, b) => (int)(a / b));
-
-            _outer.Set(add.Name, add);
-            _outer.Set(sub.Name, sub);
-            _outer.Set(mul.Name, mul);
-            _outer.Set(div.Name, div);
-        }
-
-        private MalType Eval_Ast(MalType ast, Env env) => ast switch {
+        private MalValue EvalAst(MalValue ast, Env env) => ast switch {
             MalSymbol s => env.Get(s),
             MalList l => new MalList(l.Select(i => Eval(i, env))),
+            MalVector v => new MalVector(v.Select(i => Eval(i, env))),
             _ => ast
         };
 
-        private MalType Read(string input) {
+        private static MalValue Read(string input) {
             return Reader.ReadStr(input);
         }
 
-        private MalType Eval(MalType input, Env env) {
+        internal MalValue Eval(MalValue input, Env env) {
             if (input is MalList l) {
                 if (l.Count == 0) {
                     return l;
@@ -50,45 +31,68 @@ namespace Mal {
                     switch (s.Value) {
                         case "def!": {
                                 MalSymbol key = l[1] as MalSymbol ?? throw new MalError("Can only define symbols");
-                                MalType value = Eval(l[2], env);
+                                MalValue value = Eval(l[2], env);
                                 env.Set(key, value);
                                 return value;
                             }
                         case "let*": {
-                                Env c = new Env(env);
-                                MalList bindings = l[1] as MalList ?? throw new MalError("First argument to let must be list");
+                                Env c = new(env, null, null);
+                                MalSequence bindings = l[1] as MalSequence ?? throw new MalError("First argument to let must be sequence");
                                 if (bindings.Count % 2 != 0) {
                                     throw new MalError("Bindings must come in pairs");
                                 }
                                 for (int i = 0 ; i < bindings.Count ; i += 2) {
                                     MalSymbol key = bindings[i] as MalSymbol ?? throw new MalError("Can only bind to symbols");
-                                    MalType value = Eval(bindings[i + 1], c);
+                                    MalValue value = Eval(bindings[i + 1], c);
                                     c.Set(key, value);
                                 }
                                 return Eval(l[2], c);
                             }
+                        case "do": {
+                                MalList done = new(l.Skip(1).Select(i => Eval(i, env)));
+                                return done.Last();
+                            }
+                        case "if": {
+                                MalValue expr = Eval(l[1], env);
+                                if (expr is not MalNil && !(expr is MalBool b && b == MalBool.False)) {
+                                    // True branch
+                                    return Eval(l[2], env);
+                                } else {
+                                    if (l.Count >= 4) {
+                                        // False branch
+                                        return Eval(l[3], env);
+                                    } else {
+                                        return MalNil.Nil;
+                                    }
+                                }
+                            }
+                        case "fn*": {
+                                MalSymbol[] param = (l[1] as MalSequence)?.Cast<MalSymbol>().ToArray() ?? throw new MalError("Missing argument list");
+                                MalValue body = l[2];
+                                return new MalNativeFunction(env, param, body);
+                            }
                     }
                 }
-                MalList evald = Eval_Ast(l, env) as MalList ?? throw new MalError("Eval_Ast didn't return MalList");
+                MalList evald = EvalAst(l, env) as MalList ?? throw new MalError("Eval_Ast didn't return MalList");
                 MalFunction fn = evald[0] as MalFunction ?? throw new MalError("Was expecting a function");
-                return fn.Eval(evald.Skip(1).ToArray());
+                return fn.Eval(this, evald.Skip(1).ToArray());
             } else {
-                return Eval_Ast(input, env);
+                return EvalAst(input, env);
             }
-
         }
 
-        private string Print(MalType input) {
-            return Printer.PrStr(input);
+        private static string Print(MalValue input) {
+            return Printer.PrStr(input, true);
         }
 
         private string Rep(string input) {
             return Print(Eval(Read(input), _outer));
         }
 
-        static void Main(string[] args) {
-            Program p = new Program();
-            p.Init();
+        static void Main() {
+            Program p = new();
+
+            p.Rep("(def! not (fn* (a) (if a false true)))");
             while (true) {
                 Console.Write("user> ");
                 string? input = Console.ReadLine();
@@ -97,7 +101,7 @@ namespace Mal {
                 }
                 try {
                     string output = p.Rep(input);
-                    Console.WriteLine(output);
+                    Console.Write(output + "\n");
                 } catch (MalError ex) {
                     Console.WriteLine($"Error: {ex.Message}");
                 }

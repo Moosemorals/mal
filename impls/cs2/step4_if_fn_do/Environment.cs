@@ -3,18 +3,33 @@ using System.Collections.Generic;
 
 namespace Mal {
 
-
-    public class Env {
+   internal class Env {
 
         private readonly Env? _outer;
 
-        private readonly Dictionary<MalSymbol, MalType> _data = new();
+        private readonly Dictionary<MalSymbol, MalValue> _data = new();
 
-        public Env(Env? outer) {
+        public Env(Env? outer, MalSymbol[]? binds, MalValue[]? exprs) {
             _outer = outer;
+
+            if (binds != null && exprs != null) {
+                int i =0;
+                while (i < binds.Length) {
+                    MalSymbol b = binds[i];
+                    if (b.Value == "&") {
+                        if (i + 1 == binds.Length) {
+                            throw new MalError("Missing bind name");
+                        }
+                        Set(binds[i+1], new MalList(exprs[i..]));
+                        break;
+                    }
+                    Set(b, exprs[i]);
+                    i += 1;
+                }
+           }
         }
 
-        public void Set(MalSymbol key, MalType value) {
+        public void Set(MalSymbol key, MalValue value) {
             if (!_data.ContainsKey(key)) {
                 _data.Add(key, value);
             } else {
@@ -32,7 +47,7 @@ namespace Mal {
             }
         }
 
-        public MalType Get(MalSymbol key) {
+        public MalValue Get(MalSymbol key) {
 
             Env? env = Find(key);
             if (env != null) {

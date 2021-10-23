@@ -1,5 +1,7 @@
 {
     "formattingOptions": {
+        "IndentSwitchCaseSection ": false,
+        "IndentSwitchCaseSectionWhenBlock ": false,
         "SpaceBeforeSemicolonsInForStatement": true,
         "SpaceAfterCast": true,
         "NewLinesForBracesInTypes": false,
@@ -17,5 +19,8 @@
         "NewLineForMembersInObjectInit": false,
         "NewLineForMembersInAnonymousTypes": false,
         "NewLineForClausesInQuery": false
+    },
+      "RoslynExtensionsOptions": {
+        "enableAnalyzersSupport": true
     }
 }
