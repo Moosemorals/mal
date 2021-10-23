@@ -29,12 +29,13 @@ namespace Mal {
            }
         }
 
-        public void Set(MalSymbol key, MalValue value) {
+        public MalValue Set(MalSymbol key, MalValue value) {
             if (!_data.ContainsKey(key)) {
                 _data.Add(key, value);
             } else {
                 _data[key] = value;
             }
+            return value;
         }
 
         public Env? Find(MalSymbol key) {
