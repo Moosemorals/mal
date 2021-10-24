@@ -16,6 +16,7 @@ namespace Mal {
             env.Set(new MalSymbol("/"), MathFunctionBuilder((a, b) => (int) (a / b)));
             env.Set(new MalSymbol("<"), CompFunctionBuilder((a, b) => a < b));
             env.Set(new MalSymbol("<="), CompFunctionBuilder((a, b) => a <= b));
+            env.Set(new MalSymbol("="), AreEqual);
             env.Set(new MalSymbol(">"), CompFunctionBuilder((a, b) => a > b));
             env.Set(new MalSymbol(">="), CompFunctionBuilder((a, b) => a >= b));
 
@@ -30,7 +31,6 @@ namespace Mal {
             env.Set(new MalSymbol("list?"), IsList);
             env.Set(new MalSymbol("empty?"), IsEmpty);
             env.Set(new MalSymbol("count"), Count);
-            env.Set(new MalSymbol("="), AreEqual);
         }
 
         private static MalForeignFunction List => new((prog, args) => {
