@@ -82,20 +82,19 @@ namespace Mal {
     }
 
     internal class MalNativeFunction : MalFunction {
-        private readonly Env _env;
-
-        private readonly MalSymbol[] _param;
-        private readonly MalValue _body;
+        internal Env Env {get;init;}
+        internal MalSymbol[] Param {get; init;}
+        internal MalValue Body {get; init;}
 
         public MalNativeFunction(Env env, MalSymbol[] param, MalValue body) {
-            _env = env;
-            _param = param;
-            _body = body;
+            Env = env;
+            Param = param;
+            Body = body;
         }
 
         public override MalValue Eval(Program prog, MalValue[] args) {
-            Env local = new(_env, _param, args);
-            return prog.Eval(_body, local);
+            Env local = new(Env, Param, args);
+            return prog.Eval(Body, local);
         }
     }
 

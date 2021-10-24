@@ -61,17 +61,17 @@ namespace Mal {
             MalValue a = args[0];
             MalValue b = args[1];
 
-            return _AreEqual(a, b) ? MalBool.True : MalBool.False;
+            return AreEqualImpl(a, b) ? MalBool.True : MalBool.False;
         });
 
-        private static bool _AreEqual(MalValue a, MalValue b) {
+        private static bool AreEqualImpl(MalValue a, MalValue b) {
             if (a is MalSequence A && b is MalSequence B) {
                 if (A.Count != B.Count) {
                     return false;
                 }
 
                 for (int i = 0 ; i < A.Count ; i += 1) {
-                    if (!_AreEqual(A[i], B[i])) {
+                    if (!AreEqualImpl(A[i], B[i])) {
                         return false;
                     }
                 }

@@ -23,21 +23,21 @@ namespace Mal {
         }
 
         internal MalValue Eval(MalValue ast, Env env) {
-            if (ast is not MalList l) {
-                return EvalAst(ast, env);
-            }
-            if (l.Count == 0) {
-                return ast;
-            }
-            MalSymbol cmd = l[0] as MalSymbol ?? throw new MalError("Expecting symbol");
+            while (true) {
+                if (ast is not MalList l) {
+                    return EvalAst(ast, env);
+                }
+                if (l.Count == 0) {
+                    return ast;
+                }
 
-            switch (cmd.Value) {
-                case "def!": {
+                switch (l[0]) {
+                    case MalSymbol cmd when cmd.Value == "def!": {
                         MalSymbol key = l[1] as MalSymbol ?? throw new MalError("Can only define symbols");
                         MalValue value = Eval(l[2], env);
                         return env.Set(key, value);
                     }
-                case "let*": {
+                    case MalSymbol cmd when cmd.Value == "let*": {
                         Env c = new(env, null, null);
                         MalSequence bindings = l[1] as MalSequence ?? throw new MalError("First argument to let must be sequence");
                         if (bindings.Count % 2 != 0) {
@@ -48,34 +48,64 @@ namespace Mal {
                             MalValue value = Eval(bindings[i + 1], c);
                             c.Set(key, value);
                         }
-                        return Eval(l[2], c);
+                        // TCO
+                        ast = l[2];
+                        env = c;
+                        continue;
                     }
-                case "do":
-                        return l.Skip(1).Select(i => Eval(i, env)).Last();
-                case "if": {
+                    case MalSymbol cmd when cmd.Value == "do": {
+                        // Drop the 'do'
+                        List<MalValue> rest = l.Skip(1).ToList();
+                        switch (rest.Count) {
+                            case 0:
+                            ast = MalNil.Nil;
+                            break;
+                            case 1:
+                            ast = rest[0];
+                            break;
+                            default:
+                            _ = rest.SkipLast(1).Select(i => Eval(i, env)).ToList();
+                            ast = rest.Last();
+                            break;
+                        }
+                        continue;
+                    }
+                    case MalSymbol cmd when cmd.Value == "if": {
                         MalValue expr = Eval(l[1], env);
                         if (expr is not MalNil && !(expr is MalBool b && b == MalBool.False)) {
                             // True branch
-                            return Eval(l[2], env);
+                            // TCO
+                            ast = l[2];
                         } else {
                             // False branch
                             if (l.Count >= 4) {
-                                return Eval(l[3], env);
+                                ast = l[3];
                             } else {
-                                return MalNil.Nil;
+                                ast = MalNil.Nil;
                             }
                         }
+                        continue;
                     }
-                case "fn*": {
+                    case MalSymbol cmd when cmd.Value == "fn*": {
                         MalSymbol[] param = (l[1] as MalSequence)?.Cast<MalSymbol>().ToArray() ?? throw new MalError("Missing argument list");
                         MalValue body = l[2];
                         return new MalNativeFunction(env, param, body);
                     }
-                default: {
+                    default: {
                         MalList evald = EvalAst(l, env) as MalList ?? throw new MalError("Eval_Ast didn't return MalList");
                         MalFunction fn = evald[0] as MalFunction ?? throw new MalError("Was expecting a function");
-                        return fn.Eval(this, evald.Skip(1).ToArray());
+                        // TCO
+                        if (fn is MalForeignFunction ff) {
+                            return fn.Eval(this, evald.Skip(1).ToArray());
+                        } else if (fn is MalNativeFunction n) {
+                            ast = n.Body;
+                            env = new Env(n.Env, n.Param, evald.Skip(1).ToArray());
+                            continue;
+                        } else {
+                            throw new MalError("Unknown function type");
+                        }
                     }
+                }
             }
         }
 

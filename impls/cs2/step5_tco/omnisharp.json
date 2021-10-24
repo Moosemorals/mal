@@ -1,7 +1,8 @@
 {
     "formattingOptions": {
-        "IndentSwitchCaseSection ": false,
-        "IndentSwitchCaseSectionWhenBlock ": false,
+        "IndentSwitchSection": true,
+        "IndentSwitchCaseSection": false,
+        "IndentSwitchCaseSectionWhenBlock": false,
         "SpaceBeforeSemicolonsInForStatement": true,
         "SpaceAfterCast": true,
         "NewLinesForBracesInTypes": false,
