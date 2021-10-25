@@ -5,8 +5,8 @@ using System.Linq;
 namespace Mal {
     internal class Program {
 
-        public Program() {
-            Core.Init(_outer);
+        public Program(IEnumerable<string> argv) {
+            Core.Init(_outer, argv);
         }
 
         private readonly Env _outer = new(null, null, null);
@@ -24,6 +24,8 @@ namespace Mal {
 
         internal MalValue Eval(MalValue ast, Env env) {
             while (true) {
+      //          Console.WriteLine($"eval> {Printer.PrStr(ast, true)}");
+
                 if (ast is not MalList l) {
                     return EvalAst(ast, env);
                 }
@@ -64,7 +66,7 @@ namespace Mal {
                             ast = rest[0];
                             break;
                             default:
-                            _ = rest.SkipLast(1).Select(i => Eval(i, env)).ToList();
+                            EvalAst(new MalList( rest.SkipLast(1)), env);
                             ast = rest.Last();
                             break;
                         }
@@ -95,7 +97,7 @@ namespace Mal {
                         MalList evald = EvalAst(l, env) as MalList ?? throw new MalError("Eval_Ast didn't return MalList");
                         MalFunction fn = evald[0] as MalFunction ?? throw new MalError("Was expecting a function");
                         // TCO
-                        if (fn is MalForeignFunction ff) {
+                        if (fn is MalForeignFunction) {
                             return fn.Eval(this, evald.Skip(1).ToArray());
                         } else if (fn is MalNativeFunction n) {
                             ast = n.Body;
@@ -113,10 +115,22 @@ namespace Mal {
 
         private string Rep(string input) => Print(Eval(Read(input), _outer));
 
-        static void Main() {
-            Program p = new();
+        static void Main(string[] argv) {
+            Program p;
+            if (argv.Length > 1) {
+                p = new(argv.Skip(1));
+            } else{
+                p = new(Array.Empty<string>());
+            }
 
             p.Rep("(def! not (fn* (a) (if a false true)))");
+            p.Rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))");
+
+            if (argv.Length > 0) {
+                Console.WriteLine(p.Rep($"(load-file \"{argv[0]}\")"));
+                return;
+            }
+
             while (true) {
                 Console.Write("user> ");
                 string? input = Console.ReadLine();

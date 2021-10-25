@@ -74,11 +74,11 @@ namespace Mal {
     }
 
     internal class MalForeignFunction : MalFunction {
-        private readonly Func<Program, MalValue[], MalValue> _fn;
-        public MalForeignFunction(Func<Program, MalValue[], MalValue> fn)
+        private readonly Func<MalValue[], Program, MalValue> _fn;
+        public MalForeignFunction(Func<MalValue[], Program, MalValue> fn)
             => _fn = fn;
-        public override MalValue Eval(Program prog, MalValue[] args)
-            => _fn(prog, args);
+        public override MalValue Eval(Program program, MalValue[] args)
+            => _fn(args, program);
     }
 
     internal class MalNativeFunction : MalFunction {
@@ -107,5 +107,10 @@ namespace Mal {
     internal class MalNil : MalValue {
         public static readonly MalNil Nil = new();
         private MalNil() { }
+    }
+
+    internal class MalState : MalAtom<MalValue> {
+        public MalState(MalValue value) : base(value) {
+        }
     }
 }

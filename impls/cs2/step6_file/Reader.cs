@@ -64,7 +64,12 @@ namespace Mal {
         }
 
         internal MalValue ReadForm() {
-            if (Peek().Type == TokenType.LeftParen) {
+            if (Peek().Type == TokenType.At) {
+                Advance();
+                List<MalValue> l = new() { new MalSymbol("deref") };
+                l.Add(ReadForm());
+                return new MalList(l);
+            } else if (Peek().Type == TokenType.LeftParen) {
                 Advance();
                 return ReadList(TokenType.RightParen);
             } else if (Peek().Type == TokenType.LeftSquare) {
@@ -77,7 +82,6 @@ namespace Mal {
 
         internal static MalValue ReadStr(string input) {
             return new Reader(new Scanner(input).ScanTokens()).ReadForm();
-
         }
     }
 

@@ -13,6 +13,7 @@ namespace Mal {
                 MalList l => '(' + string.Join(" ", l.Select(i => PrStr(i, printReadably))) + ')',
                 MalNil => "nil",
                 MalNumber n => n.Value.ToString(),
+                MalState st => $"(atom {PrStr(st.Value, true)})",
                 MalString str => printReadably ? Interpolate(str.Value) : str.Value,
                 MalSymbol s => s.Value,
                 MalVector v => '[' + string.Join(" ", v.Select(i => PrStr(i, printReadably))) + ']',
@@ -46,7 +47,4 @@ namespace Mal {
             return result.ToString();
         }
     }
-
-
-
 }
