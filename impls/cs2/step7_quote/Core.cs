@@ -10,7 +10,7 @@ namespace Mal {
     internal static class Core {
         private static void Add(Env env, string name, MalValue fn) {
             env.Set(new MalSymbol(name), fn);
-            }
+        }
 
         public static void Init(Env env, IEnumerable<string> argv) {
 
@@ -57,11 +57,11 @@ namespace Mal {
            args.Length > 0 && args[0] is MalState ? MalBool.True : MalBool.False
         );
 
-        private static MalForeignFunction Deref => new ((args, _) =>
-            args.Length > 0 && args[0] is MalState s ? s.Value : MalNil.Nil
+        private static MalForeignFunction Deref => new((args, _) =>
+           args.Length > 0 && args[0] is MalState s ? s.Value : MalNil.Nil
         );
 
-        private static MalForeignFunction Reset => new ((args, _) => {
+        private static MalForeignFunction Reset => new((args, _) => {
             if (args.Length > 1 && args[0] is MalState s) {
                 s.Value = args[1];
                 return args[1];
@@ -69,7 +69,7 @@ namespace Mal {
             return MalNil.Nil;
         });
 
-        private static MalForeignFunction Swap => new ((args, prog) => {
+        private static MalForeignFunction Swap => new((args, prog) => {
             if (args.Length > 1 && args[0] is MalState s && args[1] is MalFunction f) {
                 List<MalValue> fnArgs = new(args.Length > 2 ? args.Skip(2) : Array.Empty<MalValue>());
                 fnArgs.Insert(0, s.Value);
@@ -134,21 +134,21 @@ namespace Mal {
             return AreEqualImpl(a, b) ? MalBool.True : MalBool.False;
         });
 
+
         private static bool AreEqualImpl(MalValue a, MalValue b) {
             if (a is MalSequence A && b is MalSequence B) {
                 if (A.Count != B.Count) {
                     return false;
                 }
 
-                for (int i = 0 ; i < A.Count ; i += 1) {
+                for (int i =0 ; i < A.Count; i += 1) {
                     if (!AreEqualImpl(A[i], B[i])) {
                         return false;
                     }
+
                 }
                 return true;
-            }
-
-            if (a.GetType() != b.GetType()) {
+            } else if (a.GetType() != b.GetType()) {
                 return false;
             }
 

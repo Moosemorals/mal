@@ -8,39 +8,81 @@ namespace Mal {
 
     internal abstract class MalValue { }
 
-    internal abstract class MalSequence : MalValue, IList<MalValue> {
+    internal abstract class MalSequence : MalValue, IEnumerable<MalValue> {
+        public abstract int Count { get; }
+        public abstract void Add(MalValue item);
+        public abstract void CopyTo(MalValue[] array, int arrayIndex);
 
-        private readonly List<MalValue> _backingList = new();
+        public abstract MalSequence Rest();
 
-        public MalSequence() => _backingList = new();
-        public MalSequence(IEnumerable<MalValue> items) => _backingList = items.ToList();
+        public MalValue[] ToArray() {
+            MalValue[] array = new MalValue[Count];
+            CopyTo(array, 0);
+            return array;
+        }
 
-        IEnumerator IEnumerable.GetEnumerator() => _backingList.GetEnumerator();
-        public IEnumerator<MalValue> GetEnumerator() => _backingList.GetEnumerator();
-        public MalValue this[int index] { get => _backingList[index]; set => _backingList[index] = value; }
-        public bool Contains(MalValue item) => _backingList.Contains(item);
-        public bool IsReadOnly => false;
-        public bool Remove(MalValue item) => _backingList.Remove(item);
-        public int Count => _backingList.Count;
-        public int IndexOf(MalValue item) => _backingList.IndexOf(item);
-        public void Add(MalValue item) => _backingList.Add(item);
-        public void Clear() => _backingList.Clear();
-        public void CopyTo(MalValue[] array, int arrayIndex) => _backingList.CopyTo(array, arrayIndex);
-        public void Insert(int index, MalValue item) => _backingList.Insert(index, item);
-        public void RemoveAt(int index) => _backingList.RemoveAt(index);
+        public abstract IEnumerator<MalValue> GetEnumerator();
+
+        public abstract MalValue this[int index] { get; }
+
+        IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }
     }
+
 
     internal class MalList : MalSequence {
 
-        public MalList() : base() {}
-        public MalList(IEnumerable<MalValue> items) : base(items) { }
+        private readonly LinkedList<MalValue> _backingList;
+        public MalList() : base() {
+            _backingList = new();
+        }
+
+        public MalList(IEnumerable<MalValue> items) : this() {
+            if (items is MalList l) {
+                _backingList = l._backingList;
+            } else {
+                foreach (MalValue v in items) {
+                    _backingList.AddLast(v);
+                }
+            }
+        }
+
+        public override IEnumerator<MalValue> GetEnumerator() => _backingList.GetEnumerator();
+        public override int Count => _backingList.Count;
+
+        public override MalValue this[int index] => _backingList.ElementAt(index);
+
+        public override MalList Rest() => new(_backingList.Skip(1));
+
+        public override void Add(MalValue item) => _backingList.AddLast(item);
+        public override void CopyTo(MalValue[] array, int arrayIndex) => _backingList.CopyTo(array, arrayIndex);
     }
 
-    internal class MalVector: MalSequence {
+    internal class MalVector : MalSequence {
 
-        public MalVector() : base() { }
+        private readonly List<MalValue> _backingList;
 
-        public MalVector(IEnumerable<MalValue> items) : base(items) {}
+        public MalVector() : base() {
+            _backingList = new();
+        }
+
+        public MalVector(IEnumerable<MalValue> items) : this() {
+            if (items is MalVector v) {
+                _backingList = v._backingList;
+            } else {
+                _backingList.AddRange(items);
+            }
+        }
+
+        public override MalVector Rest() => new( _backingList.Skip(1));
+
+        public override IEnumerator<MalValue> GetEnumerator() => _backingList.GetEnumerator();
+        public override int Count => _backingList.Count;
+
+        public override MalValue this[int index] => _backingList[index];
+
+        public override void Add(MalValue item) => _backingList.Add(item);
+        public override void CopyTo(MalValue[] array, int arrayIndex) => _backingList.CopyTo(array, arrayIndex);
+
     }
 
     internal abstract class MalAtom<T> : MalValue {
@@ -82,9 +124,9 @@ namespace Mal {
     }
 
     internal class MalNativeFunction : MalFunction {
-        internal Env Env {get;init;}
-        internal MalSymbol[] Param {get; init;}
-        internal MalValue Body {get; init;}
+        internal Env Env { get; init; }
+        internal MalSymbol[] Param { get; init; }
+        internal MalValue Body { get; init; }
 
         public MalNativeFunction(Env env, MalSymbol[] param, MalValue body) {
             Env = env;

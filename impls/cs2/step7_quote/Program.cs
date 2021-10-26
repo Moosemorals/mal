@@ -24,7 +24,7 @@ namespace Mal {
 
         internal MalValue Eval(MalValue ast, Env env) {
             while (true) {
-      //          Console.WriteLine($"eval> {Printer.PrStr(ast, true)}");
+                //          Console.WriteLine($"eval> {Printer.PrStr(ast, true)}");
 
                 if (ast is not MalList l) {
                     return EvalAst(ast, env);
@@ -33,7 +33,7 @@ namespace Mal {
                     return ast;
                 }
 
-                switch (l[0]) {
+                switch (l.First()) {
                     case MalSymbol cmd when cmd.Value == "def!": {
                         MalSymbol key = l[1] as MalSymbol ?? throw new MalError("Can only define symbols");
                         MalValue value = Eval(l[2], env);
@@ -45,7 +45,7 @@ namespace Mal {
                         if (bindings.Count % 2 != 0) {
                             throw new MalError("Bindings must come in pairs");
                         }
-                        for (int i = 0 ; i < bindings.Count ; i += 2) {
+                        for (int i = 0; i < bindings.Count; i += 2) {
                             MalSymbol key = bindings[i] as MalSymbol ?? throw new MalError("Can only bind to symbols");
                             MalValue value = Eval(bindings[i + 1], c);
                             c.Set(key, value);
@@ -66,7 +66,7 @@ namespace Mal {
                             ast = rest[0];
                             break;
                             default:
-                            EvalAst(new MalList( rest.SkipLast(1)), env);
+                            EvalAst(new MalList(rest.SkipLast(1)), env);
                             ast = rest.Last();
                             break;
                         }
@@ -74,17 +74,13 @@ namespace Mal {
                     }
                     case MalSymbol cmd when cmd.Value == "if": {
                         MalValue expr = Eval(l[1], env);
+                        MalValue trueBranch = l[2];
+                        MalValue falseBranch = l.Count > 3 ? l[3] : MalNil.Nil;
                         if (expr is not MalNil && !(expr is MalBool b && b == MalBool.False)) {
-                            // True branch
                             // TCO
-                            ast = l[2];
+                            ast = trueBranch;
                         } else {
-                            // False branch
-                            if (l.Count >= 4) {
-                                ast = l[3];
-                            } else {
-                                ast = MalNil.Nil;
-                            }
+                            ast = falseBranch;
                         }
                         continue;
                     }
@@ -95,13 +91,15 @@ namespace Mal {
                     }
                     default: {
                         MalList evald = EvalAst(l, env) as MalList ?? throw new MalError("Eval_Ast didn't return MalList");
-                        MalFunction fn = evald[0] as MalFunction ?? throw new MalError("Was expecting a function");
+                        MalFunction fn = evald.First() as MalFunction ?? throw new MalError("Was expecting a function");
+
+                        MalValue[] fnArgs = evald.Skip(1).ToArray();
                         // TCO
                         if (fn is MalForeignFunction) {
-                            return fn.Eval(this, evald.Skip(1).ToArray());
+                            return fn.Eval(this, fnArgs);
                         } else if (fn is MalNativeFunction n) {
                             ast = n.Body;
-                            env = new Env(n.Env, n.Param, evald.Skip(1).ToArray());
+                            env = new Env(n.Env, n.Param, fnArgs);
                             continue;
                         } else {
                             throw new MalError("Unknown function type");
@@ -119,7 +117,7 @@ namespace Mal {
             Program p;
             if (argv.Length > 1) {
                 p = new(argv.Skip(1));
-            } else{
+            } else {
                 p = new(Array.Empty<string>());
             }
 
