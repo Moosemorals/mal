@@ -10,6 +10,7 @@ namespace Mal {
             string output = o switch {
                 MalBool b => b.Value ? "true" : "false",
                 MalFunction f => "#<function>",
+                MalKeyword k => ":" + k.Value,
                 MalList l => '(' + string.Join(" ", l.Select(i => PrStr(i, printReadably))) + ')',
                 MalNil => "nil",
                 MalNumber n => n.Value.ToString(),

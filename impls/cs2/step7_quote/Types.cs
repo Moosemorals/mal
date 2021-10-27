@@ -111,6 +111,12 @@ namespace Mal {
         public MalString(string value) : base(value) { }
     }
 
+    internal class MalKeyword : MalAtom<string> {
+        public MalKeyword(string value) : base(value) {
+
+        }
+    }
+
     internal abstract class MalFunction : MalValue {
         public abstract MalValue Eval(Program prog, MalValue[] args);
     }

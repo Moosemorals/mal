@@ -45,7 +45,7 @@ namespace Mal {
                         if (bindings.Count % 2 != 0) {
                             throw new MalError("Bindings must come in pairs");
                         }
-                        for (int i = 0; i < bindings.Count; i += 2) {
+                        for (int i = 0 ; i < bindings.Count ; i += 2) {
                             MalSymbol key = bindings[i] as MalSymbol ?? throw new MalError("Can only bind to symbols");
                             MalValue value = Eval(bindings[i + 1], c);
                             c.Set(key, value);
@@ -60,15 +60,15 @@ namespace Mal {
                         List<MalValue> rest = l.Skip(1).ToList();
                         switch (rest.Count) {
                             case 0:
-                            ast = MalNil.Nil;
-                            break;
+                                ast = MalNil.Nil;
+                                break;
                             case 1:
-                            ast = rest[0];
-                            break;
+                                ast = rest[0];
+                                break;
                             default:
-                            EvalAst(new MalList(rest.SkipLast(1)), env);
-                            ast = rest.Last();
-                            break;
+                                EvalAst(new MalList(rest.SkipLast(1)), env);
+                                ast = rest.Last();
+                                break;
                         }
                         continue;
                     }

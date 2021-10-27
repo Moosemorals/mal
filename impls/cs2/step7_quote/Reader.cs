@@ -52,6 +52,13 @@ namespace Mal {
                 } else {
                     throw new MalError("Missing string literal");
                 }
+            } else if (next.Type == TokenType.Colon && Peek().Type == TokenType.Symbol) {
+                next = Advance();
+                return new MalKeyword(next.Lexeme);
+            } else if (next.Type == TokenType.At) {
+                List<MalValue> l = new() { new MalSymbol("deref") };
+                l.Add(ReadForm());
+                return new MalList(l);
             } else if (next.Type == TokenType.True) {
                 return MalBool.True;
             } else if (next.Type == TokenType.False) {
@@ -59,17 +66,12 @@ namespace Mal {
             } else if (next.Type == TokenType.Nil) {
                 return MalNil.Nil;
             } else {
-                return new MalSymbol((string) next.Lexeme);
+                return new MalSymbol(next.Lexeme);
             }
         }
 
         internal MalValue ReadForm() {
-            if (Peek().Type == TokenType.At) {
-                Advance();
-                List<MalValue> l = new() { new MalSymbol("deref") };
-                l.Add(ReadForm());
-                return new MalList(l);
-            } else if (Peek().Type == TokenType.LeftParen) {
+            if (Peek().Type == TokenType.LeftParen) {
                 Advance();
                 return ReadList(TokenType.RightParen);
             } else if (Peek().Type == TokenType.LeftSquare) {
@@ -86,7 +88,7 @@ namespace Mal {
     }
 
     internal class Scanner {
-        private const string Specials = "[]{}()`'~^@,;\"";
+        private const string Specials = "[]{}():`'~^@,;\"";
         private int _start = 0;
         private int _current = 0;
         private int _line = 1;
@@ -110,14 +112,15 @@ namespace Mal {
                 switch (c) {
                     case '(': return MakeToken(TokenType.LeftParen);
                     case ')': return MakeToken(TokenType.RightParen);
-                    case '{': return MakeToken(TokenType.LeftBrace);
-                    case '}': return MakeToken(TokenType.RightBrace);
-                    case '[': return MakeToken(TokenType.LeftSquare);
-                    case ']': return MakeToken(TokenType.RightSquare);
+                    case ':': return MakeToken(TokenType.Colon);
                     case '@': return MakeToken(TokenType.At);
+                    case '[': return MakeToken(TokenType.LeftSquare);
+                    case '\'': return MakeToken(TokenType.SingleQuote);
+                    case ']': return MakeToken(TokenType.RightSquare);
                     case '^': return MakeToken(TokenType.Hat);
                     case '`': return MakeToken(TokenType.Backtick);
-                    case '\'': return MakeToken(TokenType.SingleQuote);
+                    case '{': return MakeToken(TokenType.LeftBrace);
+                    case '}': return MakeToken(TokenType.RightBrace);
                     case '~': return MakeToken(Match('@') ? TokenType.TildeAt : TokenType.Tilde);
                     case '"': return String();
                     case ';':
@@ -198,7 +201,7 @@ namespace Mal {
                     } else if (c == '\\' || c == '"') {
                         literal.Append(c);
                     } else {
-                        literal.Append(new char[] { '\\', c} );
+                        literal.Append(new char[] { '\\', c });
                     }
                     continue;
                 }
@@ -255,6 +258,6 @@ namespace Mal {
     internal enum TokenType {
         At, Backtick, EOF, False, Hat, LeftBrace, LeftParen, LeftSquare, Nil, Number,
         RightBrace, RightParen, RightSquare, SingleQuote, String, Symbol, Tilde,
-        TildeAt, True,
+        TildeAt, True, Colon,
     }
 }
