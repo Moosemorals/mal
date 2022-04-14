@@ -1,6 +1,0 @@
-#!/bin/bash
-
-exec $(dirname $0)/${STEP:-stepA_mal}/bin/Debug/net5.0/${STEP-stepA_mal} "${@}"
-
-
-
