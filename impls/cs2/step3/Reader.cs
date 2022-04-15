@@ -44,7 +44,7 @@ namespace uk.osric.mal {
             }
         }
 
-        internal T ReadList<T>(TokenType closingToken) where T : IMalSeq, new() {
+        internal T ReadList<T>(TokenType closingToken) where T : MalSeq, new() {
             T result = new T();
 
             while (!IsAtEnd) {
@@ -57,7 +57,7 @@ namespace uk.osric.mal {
             return result;
         }
 
-        internal MalHash ReadHash(){
+        internal MalHash ReadHash() {
             MalHash result = new MalHash();
 
             while (!IsAtEnd) {

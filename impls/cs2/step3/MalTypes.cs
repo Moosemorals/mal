@@ -13,20 +13,20 @@ namespace uk.osric.mal {
 
     public delegate IMalType MalFunc(params IMalType[] args);
 
-    public interface IMalSeq : IMalType, IList<IMalType> { }
-
-    public class MalList : List<IMalType>, IMalSeq {
-
-        public MalList() : base() {}
-
-        public MalList(IEnumerable<IMalType> e) : base(e) {}
-
-        public MalList Rest() {
-            return new MalList(this.Skip(1));
-        }
+    public class MalSeq : List<IMalType>, IMalType {
+        public MalSeq() : base() { }
+        public MalSeq(IEnumerable<IMalType> list) : base(list) { }
     }
 
-    public class MalVector : List<IMalType>, IMalSeq { }
+    public class MalList : MalSeq {
+        public MalList() : base() { }
+
+        public MalList(IEnumerable<IMalType> list) : base(list) { }
+
+        public MalList Rest() => new MalList(this.Skip(1));
+    }
+
+    public class MalVector : MalSeq { }
 
     public class MalHash : Dictionary<IMalType, IMalType>, IMalType { }
 
@@ -55,7 +55,7 @@ namespace uk.osric.mal {
     }
 
     public class MalFuncHolder : IMalType {
-        public MalFunc Value {get; private set;}
+        public MalFunc Value { get; private set; }
         public MalFuncHolder(MalFunc Value) => this.Value = Value;
 
         public IMalType Apply(params IMalType[] args) => Value(args);

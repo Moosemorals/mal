@@ -64,10 +64,17 @@ namespace uk.osric.mal {
                     return env.Set(((MalSymbol)rest[0]).Value, Eval(rest[1], env));
                 case "let*": {
                         Env inner = new Env(env);
-                        if (rest[0] is IMalSeq bindingList) {
+                        if (rest[0] is MalList bindingList) {
                             for (int i = 0; i < bindingList.Count; i += 2) {
                                 MalSymbol key = (MalSymbol)bindingList[i];
                                 IMalType value = bindingList[i + 1];
+                                inner.Set(key.Value, Eval(value, inner));
+                            }
+                            return Eval(rest[1], inner);
+                        } else if (rest[0] is MalVector bindingVector) {
+                            for (int i = 0; i < bindingVector.Count; i += 2) {
+                                MalSymbol key = (MalSymbol)bindingVector[i];
+                                IMalType value = bindingVector[i + 1];
                                 inner.Set(key.Value, Eval(value, inner));
                             }
                             return Eval(rest[1], inner);
@@ -77,7 +84,7 @@ namespace uk.osric.mal {
                     }
                 default: {
                         MalFuncHolder f = (MalFuncHolder)EvalAst(symbol, env);
-                        MalList r = (MalList)EvalAst(rest, env);
+                        MalSeq r = (MalSeq)EvalAst(rest, env);
                         return f.Apply(r.ToArray());
                     }
             }

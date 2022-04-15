@@ -31,7 +31,7 @@ namespace uk.osric.mal {
             }
         }
 
-        private static string FormatList(IMalSeq list, char left, char right) {
+        private static string FormatList(MalSeq list, char left, char right) {
             List<string> strings = new();
             foreach (IMalType m in list) {
                 strings.Add(PrStr(m));
