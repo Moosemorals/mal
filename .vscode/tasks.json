@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/impls/cs2/step1/step1.csproj",
+                "${workspaceFolder}/impls/cs2/step2/step2.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/impls/cs2/step1/step1.csproj",
+                "${workspaceFolder}/impls/cs2/step2/step2.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/impls/cs2/step1/step1.csproj"
+                "${workspaceFolder}/impls/cs2/step2/step2.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

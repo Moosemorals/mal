@@ -1,5 +1,11 @@
 
 .PHONY: clean
+step2_eval: step2-build/step2
+	cp step2-build/step2 step2_eval
+
+step2-build/step2: step2/*.cs step2/step2.csproj
+	dotnet publish step2/step2.csproj --configuration Release --nologo --output step2-build --runtime linux-x64 --self-contained
+
 
 step1_read_print: step1-build/step1
 	cp step1-build/step1 step1_read_print
@@ -7,7 +13,9 @@ step1_read_print: step1-build/step1
 step1-build/step1: step1/*.cs step1/step1.csproj
 	dotnet publish step1/step1.csproj --configuration Release --nologo --output step1-build --runtime linux-x64 --self-contained
 
-step1_repl: step1-build/step1
+
+
+step0_repl: step0-build/step0
 	cp step0-build/step0 step0_repl
 
 step0-build/step0: step0/*.cs step0/step0.csproj
