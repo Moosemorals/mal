@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace uk.osric.mal {
     public interface IMalType {
@@ -12,9 +13,18 @@ namespace uk.osric.mal {
 
     public delegate IMalType MalFunc(params IMalType[] args);
 
-    public interface IMalSeq : IMalType, ICollection<IMalType> { }
+    public interface IMalSeq : IMalType, IList<IMalType> { }
 
-    public class MalList : List<IMalType>, IMalSeq {}
+    public class MalList : List<IMalType>, IMalSeq {
+
+        public MalList() : base() {}
+
+        public MalList(IEnumerable<IMalType> e) : base(e) {}
+
+        public MalList Rest() {
+            return new MalList(this.Skip(1));
+        }
+    }
 
     public class MalVector : List<IMalType>, IMalSeq { }
 

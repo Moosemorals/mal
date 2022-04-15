@@ -5,36 +5,34 @@ using System.IO;
 using System.Linq;
 
 namespace uk.osric.mal {
+
     public class Program {
 
+        private readonly Env repl_env = new(null);
         private readonly Reader reader = new Reader();
-        private static MalFunc OpBuilder(Func<MalNumber, MalNumber, MalNumber> op) {
-            return a => {
+        private static MalFuncHolder OpBuilder(Func<MalNumber, MalNumber, MalNumber> op) {
+            return new MalFuncHolder(a => {
                 if (a.Length == 2 && a[0] is MalNumber left && a[1] is MalNumber right) {
                     return op(left, right);
                 }
                 return IMalType.Nil;
-            };
+            });
         }
 
-        private readonly Dictionary<string, MalFunc> repl_env = new() {
-            {"+", OpBuilder((a,b) => new MalNumber(a.Value + b.Value))},
-            {"-", OpBuilder((a,b) => new MalNumber(a.Value - b.Value))},
-            {"*", OpBuilder((a,b) => new MalNumber(a.Value * b.Value))},
-            {"/", OpBuilder((a,b) => new MalNumber(Math.Floor(a.Value / b.Value)))},
-        };
+        private void FillEnvironment() {
+            repl_env.Set("+", OpBuilder((a, b) => new MalNumber(a.Value + b.Value)));
+            repl_env.Set("-", OpBuilder((a, b) => new MalNumber(a.Value - b.Value)));
+            repl_env.Set("*", OpBuilder((a, b) => new MalNumber(a.Value * b.Value)));
+            repl_env.Set("/", OpBuilder((a, b) => new MalNumber(Math.Floor(a.Value / b.Value))));
+        }
 
         private IMalType Read(string input) {
             return reader.ReadStr(input);
         }
 
-        private IMalType EvalAst(IMalType ast, Dictionary<string, MalFunc> env) {
+        private IMalType EvalAst(IMalType ast, Env env) {
             if (ast is MalSymbol s) {
-                if (env.ContainsKey(s.Value)) {
-                    return new MalFuncHolder(env[s.Value]);
-                } else {
-                    throw new Exception($"Unknown symbol {s.Value}");
-                }
+                return env.Get(s.Value);
             } else if (ast is MalList l) {
                 MalList result = new MalList();
                 for (int i = 0; i < l.Count; i += 1) {
@@ -60,16 +58,42 @@ namespace uk.osric.mal {
             }
         }
 
-        private IMalType Eval(IMalType ast, Dictionary<string, MalFunc> env) {
+        private IMalType Apply(Env env, MalSymbol symbol, MalList rest) {
+            switch (symbol.Value) {
+                case "def!":
+                    return env.Set(((MalSymbol)rest[0]).Value, Eval(rest[1], env));
+                case "let*": {
+                        Env inner = new Env(env);
+                        if (rest[0] is IMalSeq bindingList) {
+                            for (int i = 0; i < bindingList.Count; i += 2) {
+                                MalSymbol key = (MalSymbol)bindingList[i];
+                                IMalType value = bindingList[i + 1];
+                                inner.Set(key.Value, Eval(value, inner));
+                            }
+                            return Eval(rest[1], inner);
+                        } else {
+                            throw new Exception("Unknown type for 'let*' bindings");
+                        }
+                    }
+                default: {
+                        MalFuncHolder f = (MalFuncHolder)EvalAst(symbol, env);
+                        MalList r = (MalList)EvalAst(rest, env);
+                        return f.Apply(r.ToArray());
+                    }
+            }
+        }
+
+        private IMalType Eval(IMalType ast, Env env) {
             if (ast is MalList l) {
                 if (l.Count == 0) {
                     return l;
                 }
-                IMalType r = EvalAst(l, env);
-                if (r is MalList evaledList && evaledList[0] is MalFuncHolder f) {
-                    return f.Apply(evaledList.Skip(1).ToArray());
+
+                IMalType key = l[0];
+                if (key is MalSymbol s) {
+                    return Apply(env, s, l.Rest());
                 }
-                throw new Exception("Problem evalating symbol as function");
+                throw new Exception("Couldn't apply list");
             } else {
                 return EvalAst(ast, env);
             }
@@ -83,14 +107,14 @@ namespace uk.osric.mal {
             return Print(Eval(Read(input), repl_env));
         }
 
-        public static void Main(string[] args) {
-            Program mal = new Program();
+        public void Repl(string[] args) {
+            FillEnvironment();
             while (true) {
                 Console.Write("user> ");
                 string? input = Console.ReadLine();
                 if (input != null) {
                     try {
-                        Console.WriteLine(mal.Rep(input));
+                        Console.WriteLine(Rep(input));
                     } catch (Exception ex) {
                         Console.Error.WriteLine($"There was a problem {ex.Message}");
                         FormatException(ex, Console.Error);
@@ -118,6 +142,11 @@ namespace uk.osric.mal {
                 output.WriteLine($"{e.GetType().FullName}: {ex.Message}");
                 output.WriteLine(e.StackTrace);
             }
+        }
+
+        public static void Main(string[] args) {
+            Program mal = new Program();
+            mal.Repl(args);
         }
     }
 }
