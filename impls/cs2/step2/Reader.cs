@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace uk.osric.mal {
     internal class Reader {
-        private readonly Regex NumberMatch = new Regex(@"^\d+(\.\d+)?$");
+        private readonly Regex NumberMatch = new Regex(@"^-?\d+(\.\d+)?$");
 
         private readonly Dictionary<TokenType, string> ReaderMacros = new() {
             {TokenType.SINGLE_QUOTE, "quote"},
@@ -16,21 +16,21 @@ namespace uk.osric.mal {
         };
 
         private IEnumerator<Token>? tokens;
-        internal MalType ReadStr(string input) {
+        internal IMalType ReadStr(string input) {
             Scanner s = new Scanner(input);
             tokens = s.Tokenize().GetEnumerator();
             Advance();
             return ReadForm();
         }
 
-        internal MalType ReadForm() {
+        internal IMalType ReadForm() {
             TokenType tt = Peek().Type;
             if (tt == TokenType.LEFT_PAREN) {
                 return ReadList<MalList>(TokenType.RIGHT_PAREN);
             } else if (tt == TokenType.LEFT_SQUARE) {
                 return ReadList<MalVector>(TokenType.RIGHT_SQUARE);
             } else if (tt == TokenType.LEFT_BRACE) {
-                return ReadList<MalHash>(TokenType.RIGHT_BRACE);
+                return ReadHash();
             } else if (ReaderMacros.ContainsKey(tt)) {
                 MalList result = new MalList();
                 result.Add(new MalSymbol(ReaderMacros[tt]));
@@ -40,11 +40,11 @@ namespace uk.osric.mal {
             } else if (tt != TokenType.EOF) {
                 return ReadAtom();
             } else {
-                return MalType.Nil;
+                return IMalType.Nil;
             }
         }
 
-        internal T ReadList<T>(TokenType closingToken) where T : MalSeq, new() {
+        internal T ReadList<T>(TokenType closingToken) where T : IMalSeq, new() {
             T result = new T();
 
             while (!IsAtEnd) {
@@ -57,15 +57,34 @@ namespace uk.osric.mal {
             return result;
         }
 
-        internal MalType ReadAtom() {
+        internal MalHash ReadHash(){
+            MalHash result = new MalHash();
+
+            while (!IsAtEnd) {
+                Token KeyToken = Advance();
+                if (KeyToken.Type == TokenType.RIGHT_BRACE) {
+                    break;
+                }
+                IMalType key = ReadForm();
+                Token ValueToken = Advance();
+                if (ValueToken.Type == TokenType.RIGHT_BRACE) {
+                    throw new ArgumentException("Hash literals need to come in pairs");
+                }
+                IMalType value = ReadForm();
+                result.Add(key, value);
+            }
+            return result;
+        }
+
+        internal IMalType ReadAtom() {
             Token token = Peek();
             switch (token.Type) {
                 case TokenType.TRUE:
-                    return MalType.True;
+                    return IMalType.True;
                 case TokenType.FALSE:
-                    return MalType.False;
+                    return IMalType.False;
                 case TokenType.NIL:
-                    return MalType.Nil;
+                    return IMalType.Nil;
                 case TokenType.STRING:
                     return new MalString(token.Lexeme);
                 case TokenType.SYMBOL:

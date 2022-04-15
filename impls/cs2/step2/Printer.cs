@@ -7,13 +7,13 @@ namespace uk.osric.mal {
 
     public class Printer {
 
-        public static string PrStr(MalType item) {
+        public static string PrStr(IMalType item) {
             if (item is MalList l) {
                 return FormatList(l, '(', ')');
             } else if (item is MalVector v) {
                 return FormatList(v, '[', ']');
             } else if (item is MalHash h) {
-                return FormatList(h, '{', '}');
+                return FormatHash(h);
             } else if (item is MalTrue) {
                 return "true";
             } else if (item is MalFalse) {
@@ -31,12 +31,22 @@ namespace uk.osric.mal {
             }
         }
 
-        private static string FormatList(MalSeq list, char left, char right) {
+        private static string FormatList(IMalSeq list, char left, char right) {
             List<string> strings = new();
-            for (int i = 0; i < list.Count; i += 1) {
-                strings.Add(PrStr(list[i]));
+            foreach (IMalType m in list) {
+                strings.Add(PrStr(m));
             }
             return $"{left}{string.Join(" ", strings)}{right}";
+        }
+
+        private static string FormatHash(MalHash hash) {
+            List<string> strings = new();
+            foreach (var kv in hash) {
+                strings.Add(PrStr(kv.Key));
+                strings.Add(PrStr(kv.Value));
+            }
+            return $"{{{string.Join(" ", strings)}}}";
+
         }
     }
 }

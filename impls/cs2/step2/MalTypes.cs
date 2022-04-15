@@ -4,41 +4,33 @@ using System.Collections;
 using System.Collections.Generic;
 
 namespace uk.osric.mal {
-    public abstract class MalType {
+    public interface IMalType {
         public static readonly MalTrue True = new MalTrue();
         public static readonly MalFalse False = new MalFalse();
         public static readonly MalNil Nil = new MalNil();
     }
 
-    public abstract class MalSeq : MalType {
-        protected readonly List<MalType> backingList = new();
+    public delegate IMalType MalFunc(params IMalType[] args);
 
-        public int Count => backingList.Count;
+    public interface IMalSeq : IMalType, ICollection<IMalType> { }
 
-        public MalType this[int index] {
-            get => backingList[index];
-            set => backingList[index] = value;
-        }
-        public void Add(MalType item) => backingList.Add(item);
+    public class MalList : List<IMalType>, IMalSeq {}
 
+    public class MalVector : List<IMalType>, IMalSeq { }
 
-    }
-    public class MalList : MalSeq { }
+    public class MalHash : Dictionary<IMalType, IMalType>, IMalType { }
 
-    public class MalVector : MalSeq { }
-
-    public class MalHash : MalSeq { }
-    public class MalSymbol : MalType {
+    public class MalSymbol : IMalType {
         public string Value { get; private set; }
         public MalSymbol(string Value) => this.Value = Value;
     }
 
-    public class MalString : MalType {
+    public class MalString : IMalType {
         public string Value { get; private set; }
         public MalString(string Value) => this.Value = Value;
     }
 
-    public class MalNumber : MalType {
+    public class MalNumber : IMalType {
         public double Value { get; private set; }
         public MalNumber(double Value) => this.Value = Value;
 
@@ -52,7 +44,15 @@ namespace uk.osric.mal {
         }
     }
 
-    public class MalTrue : MalType { }
-    public class MalFalse : MalType { }
-    public class MalNil : MalType { }
+    public class MalFuncHolder : IMalType {
+        public MalFunc Value {get; private set;}
+        public MalFuncHolder(MalFunc Value) => this.Value = Value;
+
+        public IMalType Apply(params IMalType[] args) => Value(args);
+
+    }
+
+    public class MalTrue : IMalType { }
+    public class MalFalse : IMalType { }
+    public class MalNil : IMalType { }
 }
