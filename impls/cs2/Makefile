@@ -1,6 +1,14 @@
 
 .PHONY: clean
 
+step4_if_fn_do: step4-build/step4
+	cp step4-build/step4 step4_if_fn_do
+
+step4-build/step4: step4/*.cs step4/step4.csproj
+	dotnet publish step4/step4.csproj --configuration Release --nologo --output step4-build --runtime linux-x64 --self-contained
+
+
+
 step3_env: step3-build/step3
 	cp step3-build/step3 step3_env
 

@@ -1,0 +1,69 @@
+--- ../../../process/step3_env.txt	2022-04-14 11:17:25.966459400 +0100
++++ ../../../process/step4_if_fn_do.txt	2022-04-14 11:17:25.966459400 +0100
+@@ -1,5 +1,5 @@
+---- step3_env -----------------------------------
+-import types, reader, printer, env
++--- step4_if_fn_do ------------------------------
++import types, reader, printer, env, core
+ 
+ READ(str): return reader.read_str(str)
+ 
+@@ -16,6 +16,9 @@ EVAL(ast,env):
+     switch ast[0]:
+       'def!:        return env.set(ast[1], EVAL(ast[2], env))
+       'let*:        let_env = ...; return EVAL(ast[2], let_env)
++      'do:          return eval_ast(rest(ast), env)[-1]
++      'if:          return EVAL(EVAL(ast[1], env) ? ast[2] : ast[3], env)
++      'fn*:         return (...a) -> EVAL(ast[2], new Env(env, ast[1], a))
+       _default_:    f, args = eval_ast(ast, env)
+                     return apply(f, args)
+ 
+@@ -24,16 +27,45 @@ PRINT(exp): return printer.pr_str(exp)
+ repl_env = new Env()
+ rep(str): return PRINT(EVAL(READ(str),repl_env))
+ 
+-repl_env.set('+, add_fn)
+-    ...
++;; core.EXT: defined using the host language.
++core.ns.map((k,v) -> (repl_env.set(k, v)))
++
++;; core.mal: defined using the language itself
++rep("(def! not (fn* (a) (if a false true)))")
+ 
+ main loop:
+   try:      println(rep(readline("user> ")))
+   catch e:  println("Error: ", e)
+ 
+ --- env module ----------------------------------
+-class Env (outer=null)
++class Env (outer=null,binds=[],exprs=[])
+     data = hash_map()
++    foreach b, i in binds:
++      if binds[i] == '&: data[binds[i+1]] = exprs.drop(i); break
++      else: data[binds[i]] = exprs[i]
+   set(k,v): return data.set(k,v)
+   find(k): return data.has(k) ? this : (if outer ? find(outer) : null)
+   get(k): return data.find(k).get(k) OR raise "'" + k + "' not found"
++
++--- core module ---------------------------------
++ns = {'=:        equal?,
++
++      'pr-str:   (a) -> a.map(|s| pr_str(e,true)).join(" ")),
++      'str:      (a) -> a.map(|s| pr_str(e,false)).join("")),
++      'prn:      (a) -> println(a.map(|s| pr_str(e,true)).join(" ")),
++      'println:  (a) -> println(a.map(|s| pr_str(e,false)).join(" ")),
++
++      '<:        lt,
++      '<=:       lte,
++      '>:        gt,
++      '>=:       gte,
++      '+:        add,
++      '-:        sub,
++      '*:        mult,
++      '/:        div,
++
++      'list:     list,
++      'list?:    list?,
++
++      'empty?:   empty?,
++      'count:    count}
