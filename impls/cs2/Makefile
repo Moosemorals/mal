@@ -1,5 +1,13 @@
 
 .PHONY: clean
+
+step3_env: step3-build/step3
+	cp step3-build/step3 step3_env
+
+step3-build/step3: step3/*.cs step3/step3.csproj
+	dotnet publish step3/step3.csproj --configuration Release --nologo --output step3-build --runtime linux-x64 --self-contained
+
+
 step2_eval: step2-build/step2
 	cp step2-build/step2 step2_eval
 

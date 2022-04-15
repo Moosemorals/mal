@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/impls/cs2/step2/bin/Debug/net6.0/step2.dll",
+            "program": "${workspaceFolder}/impls/cs2/step3/bin/Debug/net6.0/step3.dll",
             "args": [],
             "cwd": "${workspaceFolder}/impls/cs2/step0",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
