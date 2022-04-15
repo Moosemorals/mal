@@ -3,45 +3,53 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace uk.osric.mal
-{
-    internal class Reader
-    {
+namespace uk.osric.mal {
+    internal class Reader {
         private readonly Regex NumberMatch = new Regex(@"^\d+(\.\d+)?$");
+
+        private readonly Dictionary<TokenType, string> ReaderMacros = new() {
+            {TokenType.SINGLE_QUOTE, "quote"},
+            {TokenType.BACKTICK, "quasiquote"},
+            {TokenType.TILDE, "unquote"},
+            {TokenType.TILDE_AT, "splice-unquote"},
+            {TokenType.AT, "deref"},
+        };
+
         private IEnumerator<Token>? tokens;
-        internal MalType ReadStr(string input)
-        {
+        internal MalType ReadStr(string input) {
             Scanner s = new Scanner(input);
             tokens = s.Tokenize().GetEnumerator();
             Advance();
             return ReadForm();
         }
 
-        internal MalType ReadForm()
-        {
-            if (Peek().Type == TokenType.LEFT_PAREN)
-            {
-                return ReadList();
-            }
-            else if (Peek().Type != TokenType.EOF)
-            {
+        internal MalType ReadForm() {
+            TokenType tt = Peek().Type;
+            if (tt == TokenType.LEFT_PAREN) {
+                return ReadList<MalList>(TokenType.RIGHT_PAREN);
+            } else if (tt == TokenType.LEFT_SQUARE) {
+                return ReadList<MalVector>(TokenType.RIGHT_SQUARE);
+            } else if (tt == TokenType.LEFT_BRACE) {
+                return ReadList<MalHash>(TokenType.RIGHT_BRACE);
+            } else if (ReaderMacros.ContainsKey(tt)) {
+                MalList result = new MalList();
+                result.Add(new MalSymbol(ReaderMacros[tt]));
+                Advance();
+                result.Add(ReadForm());
+                return result;
+            } else if (tt != TokenType.EOF) {
                 return ReadAtom();
-            }
-            else
-            {
+            } else {
                 return MalType.Nil;
             }
         }
 
-        internal MalList ReadList()
-        {
-            MalList result = new MalList();
+        internal T ReadList<T>(TokenType closingToken) where T : MalSeq, new() {
+            T result = new T();
 
-            while (!IsAtEnd)
-            {
+            while (!IsAtEnd) {
                 Token next = Advance();
-                if (next.Type == TokenType.RIGHT_PAREN)
-                {
+                if (next.Type == closingToken) {
                     break;
                 }
                 result.Add(ReadForm());
@@ -49,11 +57,9 @@ namespace uk.osric.mal
             return result;
         }
 
-        internal MalType ReadAtom()
-        {
+        internal MalType ReadAtom() {
             Token token = Peek();
-            switch (token.Type)
-            {
+            switch (token.Type) {
                 case TokenType.TRUE:
                     return MalType.True;
                 case TokenType.FALSE:
@@ -63,12 +69,9 @@ namespace uk.osric.mal
                 case TokenType.STRING:
                     return new MalString(token.Lexeme);
                 case TokenType.SYMBOL:
-                    if (NumberMatch.IsMatch(token.Lexeme))
-                    {
+                    if (NumberMatch.IsMatch(token.Lexeme)) {
                         return new MalNumber(token.Lexeme);
-                    }
-                    else
-                    {
+                    } else {
                         return new MalSymbol(token.Lexeme);
                     }
                 default:
@@ -79,19 +82,16 @@ namespace uk.osric.mal
         private bool IsAtEnd => tokens == null || tokens.Current.Type == TokenType.EOF;
         private Token Peek() => tokens != null ? tokens.Current : throw new NullReferenceException();
 
-        private Token Advance()
-        {
-            if (tokens != null && tokens.MoveNext())
-            {
+        private Token Advance() {
+            if (tokens != null && tokens.MoveNext()) {
                 return Peek();
             }
-            throw new Exception("Ran out of tokens");
+            throw new Exception("Unexpeced EOF");
         }
     }
 
 
-    internal class Scanner
-    {
+    internal class Scanner {
         private const string Specials = "\0 \t\r\n[]{}('\"`,;)";
         private int start = 0;
         private int current = 0;
@@ -99,23 +99,18 @@ namespace uk.osric.mal
 
         public Scanner(string source) => this.source = source;
 
-        internal IEnumerable<Token> Tokenize()
-        {
-            while (!IsAtEnd)
-            {
+        internal IEnumerable<Token> Tokenize() {
+            while (!IsAtEnd) {
                 yield return ScanToken();
             }
             yield break;
         }
 
-        private Token ScanToken()
-        {
-            while (!IsAtEnd)
-            {
+        private Token ScanToken() {
+            while (!IsAtEnd) {
                 start = current;
                 char c = Advance();
-                switch (c)
-                {
+                switch (c) {
                     case '(': return MakeToken(TokenType.LEFT_PAREN);
                     case ')': return MakeToken(TokenType.RIGHT_PAREN);
                     case '@': return MakeToken(TokenType.AT);
@@ -129,8 +124,7 @@ namespace uk.osric.mal
                     case '~':
                         return MakeToken(Match('@') ? TokenType.TILDE_AT : TokenType.TILDE);
                     case ';':
-                        while (!IsAtEnd && Peek() != '\n')
-                        {
+                        while (!IsAtEnd && Peek() != '\n') {
                             Advance();
                         }
                         break;
@@ -143,12 +137,9 @@ namespace uk.osric.mal
                         break;
                     case '"': return String();
                     default:
-                        if (!IsSpecial(c))
-                        {
+                        if (!IsSpecial(c)) {
                             return Other();
-                        }
-                        else
-                        {
+                        } else {
                             throw new Exception($"Unexpected character {c}");
                         }
                 }
@@ -156,13 +147,11 @@ namespace uk.osric.mal
             return MakeToken(TokenType.EOF);
         }
 
-        private char Advance()
-        {
+        private char Advance() {
             return source[current++];
         }
 
-        private Token MakeToken(TokenType type)
-        {
+        private Token MakeToken(TokenType type) {
             return new Token(type, source.Substring(start, current - start));
         }
 
@@ -170,88 +159,112 @@ namespace uk.osric.mal
 
         private bool IsSpecial(char c) => Specials.IndexOf(c) != -1;
 
-        private bool Match(char expected)
-        {
-            if (Peek() != expected)
-            {
+        private bool Match(char expected) {
+            if (Peek() != expected) {
                 return false;
             }
             Advance();
             return true;
         }
 
-        private Token Other()
-        {
-            while (!IsSpecial(Peek()))
-            {
+        private Token Other() {
+            while (!IsSpecial(Peek())) {
                 Advance();
             }
 
             string lexeme = source.Substring(start, current - start);
 
-            if (lexeme == "true")
-            {
+            if (lexeme == "true") {
                 return MakeToken(TokenType.TRUE);
-            }
-            else if (lexeme == "false")
-            {
+            } else if (lexeme == "false") {
                 return MakeToken(TokenType.FALSE);
-            }
-            else if (lexeme == "nil")
-            {
+            } else if (lexeme == "nil") {
                 return MakeToken(TokenType.NIL);
-            }
-            else
-            {
+            } else {
                 return MakeToken(TokenType.SYMBOL);
             }
         }
 
-        private char Peek()
-        {
+        private char Peek() {
             return IsAtEnd ? '\0' : source[current];
         }
 
-        private Token String()
-        {
-            string lexeme = "";
-            while (!IsAtEnd && Peek() != '"')
-            {
-                if (Peek() == '\\')
-                {
-                    Advance();
-                    if (!IsAtEnd)
-                    {
-                        lexeme += Advance();
-                    }
+        private char PeekBehind() {
+            if (current > 0) {
+                return source[current - 1];
+            } else {
+                return '\0';
+            }
+        }
+
+        private Token String() {
+            string str = "";
+            bool escaped = false;
+            while (!IsAtEnd) {
+                char c = Peek();
+                // If we read a slash character then the next character is
+                // escaped unless we're already in an escaped state
+                if (!escaped && c == '"') {
+                    break;
                 }
-                else
-                {
-                    lexeme += Advance();
+                if (!escaped && c == '\\') {
+                    escaped = true;
+                } else {
+                    escaped = false;
                 }
+
+                str += c;
+                Advance();
             }
 
-            if (IsAtEnd)
-            {
-                throw new Exception("Unterminated string");
+            if (IsAtEnd) {
+                throw new Exception("Unterminated string at EOF");
             }
 
             // Skip closing quote
             Advance();
 
-            return new Token(TokenType.STRING, lexeme);
+            return new Token(TokenType.STRING, str);
         }
 
-
-
+        private static string InterpretSlashes(string input) {
+            // replace backslash escapes
+            string output = "";
+            for (int i = 0; i < input.Length; i += 1) {
+                char c = input[i];
+                if (c == '\\') {
+                    if (i != input.Length - 1) {
+                        char n = input[i + 1];
+                        switch (n) {
+                            case 'n':
+                                output += '\n';
+                                break;
+                            case '\\':
+                                output += '\\';
+                                break;
+                            case '"':
+                                output += '"';
+                                break;
+                            default:
+                                output += c;
+                                output += n;
+                                break;
+                        }
+                        i += 1;
+                        continue;
+                    }
+                }
+                output += c;
+            }
+            return output;
+        }
     }
 
 
     internal record Token(TokenType Type, string Lexeme);
 
 
-    internal enum TokenType
-    {
+    internal enum TokenType {
 
         AT,
         BACKTICK,

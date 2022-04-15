@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec $(dirname $0)/${STEP:-stepA_mal} "${@}"
+exec dotnet step1-build/step1.dll "${@}"
