@@ -11,8 +11,11 @@ namespace uk.osric.mal {
         private readonly Env repl_env = new(null);
         private readonly Reader reader = new Reader();
         private static MalFuncHolder OpBuilder(Func<MalNumber, MalNumber, MalNumber> op) {
-            return new MalFuncHolder(a => {
-                if (a.Length == 2 && a[0] is MalNumber left && a[1] is MalNumber right) {
+            return new MalFuncHolder((MalList l) => {
+                IMalType a = l.Head;
+                IMalType b = l.Tail?.Head ?? IMalType.Nil;
+
+                if (a is MalNumber left && b is MalNumber right) {
                     return op(left, right);
                 }
                 return IMalType.Nil;
@@ -34,11 +37,7 @@ namespace uk.osric.mal {
             if (ast is MalSymbol s) {
                 return env.Get(s.Value);
             } else if (ast is MalList l) {
-                MalList result = new MalList();
-                for (int i = 0; i < l.Count; i += 1) {
-                    result.Add(Eval(l[i], env));
-                }
-                return result;
+                return new MalList(l.Select(m => Eval(m, env)));
             } else if (ast is MalVector v) {
                 MalVector result = new MalVector();
                 for (int i = 0; i < v.Count; i += 1) {
@@ -61,44 +60,47 @@ namespace uk.osric.mal {
         private IMalType Apply(Env env, MalSymbol symbol, MalList rest) {
             switch (symbol.Value) {
                 case "def!":
-                    return env.Set(((MalSymbol)rest[0]).Value, Eval(rest[1], env));
+                    return env.Set(((MalSymbol)rest.Head).Value, Eval(rest.Tail, env));
                 case "let*": {
                         Env inner = new Env(env);
-                        if (rest[0] is MalList bindingList) {
-                            for (int i = 0; i < bindingList.Count; i += 2) {
-                                MalSymbol key = (MalSymbol)bindingList[i];
-                                IMalType value = bindingList[i + 1];
+                        if (rest.Head is MalList bindingList) {
+
+                            while (!bindingList.IsEmpty) {
+                                MalSymbol key = (MalSymbol)bindingList.Head;
+                                bindingList = bindingList.Tail;
+                                IMalType value = bindingList.Head;
+                                bindingList = bindingList.Tail;
                                 inner.Set(key.Value, Eval(value, inner));
                             }
-                            return Eval(rest[1], inner);
-                        } else if (rest[0] is MalVector bindingVector) {
+                            return Eval(rest.Tail, inner);
+                        } else if (rest.Head is MalVector bindingVector) {
                             for (int i = 0; i < bindingVector.Count; i += 2) {
                                 MalSymbol key = (MalSymbol)bindingVector[i];
                                 IMalType value = bindingVector[i + 1];
                                 inner.Set(key.Value, Eval(value, inner));
                             }
-                            return Eval(rest[1], inner);
+                            return Eval(rest.Tail, inner);
                         } else {
                             throw new Exception("Unknown type for 'let*' bindings");
                         }
                     }
                 default: {
                         MalFuncHolder f = (MalFuncHolder)EvalAst(symbol, env);
-                        MalSeq r = (MalSeq)EvalAst(rest, env);
-                        return f.Apply(r.ToArray());
+                        MalList r = (MalList)EvalAst(rest, env);
+                        return f.Apply(r);
                     }
             }
         }
 
         private IMalType Eval(IMalType ast, Env env) {
             if (ast is MalList l) {
-                if (l.Count == 0) {
+                if (l.IsEmpty) {
                     return l;
                 }
 
-                IMalType key = l[0];
+                IMalType key = l.Head;
                 if (key is MalSymbol s) {
-                    return Apply(env, s, l.Rest());
+                    return Apply(env, s, l.Tail);
                 }
                 throw new Exception("Couldn't apply list");
             } else {

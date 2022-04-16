@@ -26,16 +26,16 @@ namespace uk.osric.mal {
         internal IMalType ReadForm() {
             TokenType tt = Peek().Type;
             if (tt == TokenType.LEFT_PAREN) {
-                return ReadList<MalList>(TokenType.RIGHT_PAREN);
+                return ReadList();
             } else if (tt == TokenType.LEFT_SQUARE) {
-                return ReadList<MalVector>(TokenType.RIGHT_SQUARE);
+                return ReadVector();
             } else if (tt == TokenType.LEFT_BRACE) {
                 return ReadHash();
             } else if (ReaderMacros.ContainsKey(tt)) {
-                MalList result = new MalList();
-                result.Add(new MalSymbol(ReaderMacros[tt]));
+                MalList result = MalList.Empty();
+                result.Cons(new MalSymbol(ReaderMacros[tt]));
                 Advance();
-                result.Add(ReadForm());
+                result.Cons(ReadForm());
                 return result;
             } else if (tt != TokenType.EOF) {
                 return ReadAtom();
@@ -44,12 +44,24 @@ namespace uk.osric.mal {
             }
         }
 
-        internal T ReadList<T>(TokenType closingToken) where T : MalSeq, new() {
-            T result = new T();
+        private MalList ReadList() {
+            List<IMalType> items = new();
 
             while (!IsAtEnd) {
                 Token next = Advance();
-                if (next.Type == closingToken) {
+                if (next.Type == TokenType.RIGHT_PAREN) {
+                    break;
+                }
+                items.Add(ReadForm());
+            }
+            return new MalList(items);
+        }
+
+        private MalVector ReadVector() {
+            MalVector result = new();
+            while(!IsAtEnd) {
+                Token next = Advance();
+                if (next.Type == TokenType.RIGHT_SQUARE) {
                     break;
                 }
                 result.Add(ReadForm());
@@ -57,7 +69,7 @@ namespace uk.osric.mal {
             return result;
         }
 
-        internal MalHash ReadHash() {
+        private MalHash ReadHash() {
             MalHash result = new MalHash();
 
             while (!IsAtEnd) {
