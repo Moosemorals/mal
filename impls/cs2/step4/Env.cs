@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace uk.osric.mal {
 
@@ -8,18 +9,26 @@ namespace uk.osric.mal {
 
         private readonly Env? outer;
 
-        private readonly Dictionary<string, IMalType> data = new();
+        private readonly Dictionary<MalSymbol, IMalType> data = new();
 
-        public Env(Env? outer) {
+        public Env(Env? outer) : this(outer, null, null) {}
+
+        public Env(Env? outer, IEnumerable<IMalType>? binds, IEnumerable<IMalType>? exprs) {
             this.outer = outer;
+
+            if (binds != null && exprs != null) {
+                foreach ((IMalType name, IMalType expr) in binds.Zip(exprs)) {
+                    Set((MalSymbol)name, expr);
+                }
+            }
         }
 
-        public IMalType Set(string key, IMalType value) {
+        public IMalType Set(MalSymbol key, IMalType value) {
             data[key] = value;
             return value;
         }
 
-        public Env? Find(string key) {
+        public Env? Find(MalSymbol key) {
             if (data.ContainsKey(key)) {
                 return this;
             } else if (outer != null) {
@@ -29,7 +38,7 @@ namespace uk.osric.mal {
             }
         }
 
-        public IMalType Get(string key) {
+        public IMalType Get(MalSymbol key) {
             Env? e = Find(key);
             if (e != null) {
                 return e.data[key];

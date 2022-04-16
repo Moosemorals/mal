@@ -10,32 +10,13 @@ namespace uk.osric.mal {
 
         private readonly Env repl_env = new(null);
         private readonly Reader reader = new Reader();
-        private static MalFuncHolder OpBuilder(Func<MalNumber, MalNumber, MalNumber> op) {
-            return new MalFuncHolder((MalList l) => {
-                IMalType a = l.Head;
-                IMalType b = l.Tail?.Head ?? IMalType.Nil;
-
-                if (a is MalNumber left && b is MalNumber right) {
-                    return op(left, right);
-                }
-                return IMalType.Nil;
-            });
-        }
-
-        private void FillEnvironment() {
-            repl_env.Set("+", OpBuilder((a, b) => new MalNumber(a.Value + b.Value)));
-            repl_env.Set("-", OpBuilder((a, b) => new MalNumber(a.Value - b.Value)));
-            repl_env.Set("*", OpBuilder((a, b) => new MalNumber(a.Value * b.Value)));
-            repl_env.Set("/", OpBuilder((a, b) => new MalNumber(Math.Floor(a.Value / b.Value))));
-        }
-
         private IMalType Read(string input) {
             return reader.ReadStr(input);
         }
 
         private IMalType EvalAst(IMalType ast, Env env) {
             if (ast is MalSymbol s) {
-                return env.Get(s.Value);
+                return env.Get(s);
             } else if (ast is MalList l) {
                 return new MalList(l.Select(m => Eval(m, env)));
             } else if (ast is MalVector v) {
@@ -60,7 +41,7 @@ namespace uk.osric.mal {
         private IMalType Apply(Env env, MalSymbol symbol, MalList rest) {
             switch (symbol.Value) {
                 case "def!":
-                    return env.Set(((MalSymbol)rest.Head).Value, Eval(rest.Tail, env));
+                    return env.Set((MalSymbol)rest.Head, Eval(rest.Tail, env));
                 case "let*": {
                         Env inner = new Env(env);
                         if (rest.Head is MalList bindingList) {
@@ -70,20 +51,32 @@ namespace uk.osric.mal {
                                 bindingList = bindingList.Tail;
                                 IMalType value = bindingList.Head;
                                 bindingList = bindingList.Tail;
-                                inner.Set(key.Value, Eval(value, inner));
+                                inner.Set(key, Eval(value, inner));
                             }
                             return Eval(rest.Tail, inner);
                         } else if (rest.Head is MalVector bindingVector) {
                             for (int i = 0; i < bindingVector.Count; i += 2) {
                                 MalSymbol key = (MalSymbol)bindingVector[i];
                                 IMalType value = bindingVector[i + 1];
-                                inner.Set(key.Value, Eval(value, inner));
+                                inner.Set(key, Eval(value, inner));
                             }
                             return Eval(rest.Tail, inner);
                         } else {
                             throw new Exception("Unknown type for 'let*' bindings");
                         }
                     }
+                case "do":
+                    return rest.Select(m => Eval(m, env)).Last();
+                case "if": {
+                        IMalType testResult = Eval(rest.Head, env);
+                        if (testResult != IMalType.Nil && testResult != IMalType.False) {
+                            return Eval(rest.Tail.Head, env);
+                        } else {
+                            return Eval(rest.Tail.Tail.Head, env);
+                        }
+                    }
+                case "fn*":
+                    return Eval(rest.Tail.Head, new Env(env, (MalList)rest.Head, rest.Tail.Tail));
                 default: {
                         MalFuncHolder f = (MalFuncHolder)EvalAst(symbol, env);
                         MalList r = (MalList)EvalAst(rest, env);
@@ -117,7 +110,6 @@ namespace uk.osric.mal {
         }
 
         public void Repl(string[] args) {
-            FillEnvironment();
             while (true) {
                 Console.Write("user> ");
                 string? input = Console.ReadLine();

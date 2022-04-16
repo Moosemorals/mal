@@ -75,9 +75,29 @@ namespace uk.osric.mal {
 
     public class MalHash : Dictionary<IMalType, IMalType>, IMalType { }
 
-    public class MalSymbol : IMalType {
+    public class MalSymbol : IEquatable<MalSymbol>, IMalType {
         public string Value { get; private set; }
         public MalSymbol(string Value) => this.Value = Value;
+
+        public override bool Equals(object? obj) => this.Equals(obj as MalSymbol);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string? ToString() => Value;
+
+        public bool Equals(MalSymbol? other) => other != null && other.Value.Equals(Value);
+
+        public static bool operator ==(MalSymbol? left, MalSymbol? right) {
+            if (left is null) {
+                if (right is null) {
+                    return true;
+                }
+                return false;
+            }
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(MalSymbol? left, MalSymbol? right) => !(left == right);
     }
 
     public class MalString : IMalType {

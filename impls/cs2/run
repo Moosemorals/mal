@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec dotnet step3-build/step3.dll "${@}"
+exec dotnet step4-build/step4.dll "${@}"
