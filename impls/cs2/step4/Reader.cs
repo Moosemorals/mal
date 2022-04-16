@@ -255,7 +255,7 @@ namespace uk.osric.mal {
             // Skip closing quote
             Advance();
 
-            return new Token(TokenType.STRING, str);
+            return new Token(TokenType.STRING, InterpretSlashes(str));
         }
 
         private static string InterpretSlashes(string input) {

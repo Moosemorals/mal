@@ -109,7 +109,7 @@ namespace uk.osric.mal {
         }
 
         private string Print(IMalType input) {
-            return Printer.PrStr(input);
+            return Printer.PrStr(input, true);
         }
 
         private string Rep(string input) {
