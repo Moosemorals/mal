@@ -41,7 +41,7 @@ namespace uk.osric.mal {
         private IMalType Apply(Env env, MalSymbol symbol, MalList rest) {
             switch (symbol.Value) {
                 case "def!":
-                    return env.Set((MalSymbol)rest.Head, Eval(rest.Tail, env));
+                    return env.Set((MalSymbol)rest.Head, Eval(rest.Tail.Head, env));
                 case "let*": {
                         Env inner = new Env(env);
                         if (rest.Head is MalList bindingList) {
@@ -53,14 +53,14 @@ namespace uk.osric.mal {
                                 bindingList = bindingList.Tail;
                                 inner.Set(key, Eval(value, inner));
                             }
-                            return Eval(rest.Tail, inner);
+                            return Eval(rest.Tail.Head, inner);
                         } else if (rest.Head is MalVector bindingVector) {
                             for (int i = 0; i < bindingVector.Count; i += 2) {
                                 MalSymbol key = (MalSymbol)bindingVector[i];
                                 IMalType value = bindingVector[i + 1];
                                 inner.Set(key, Eval(value, inner));
                             }
-                            return Eval(rest.Tail, inner);
+                            return Eval(rest.Tail.Head, inner);
                         } else {
                             throw new Exception("Unknown type for 'let*' bindings");
                         }
@@ -110,16 +110,19 @@ namespace uk.osric.mal {
         }
 
         public void Repl(string[] args) {
+            foreach ((MalSymbol key, MalFunc value) in Core.NS) {
+                repl_env.Set(key, new MalFuncHolder(value));
+            }
+
+            Readline readline = new();
+
             while (true) {
-                Console.Write("user> ");
-                string? input = Console.ReadLine();
-                if (input != null) {
-                    try {
-                        Console.WriteLine(Rep(input));
-                    } catch (Exception ex) {
-                        Console.Error.WriteLine($"There was a problem {ex.Message}");
-                        FormatException(ex, Console.Error);
-                    }
+                try {
+                    string input = readline.WaitForInput("user> ");
+                    Console.WriteLine(Rep(input));
+                } catch (Exception ex) {
+                    Console.Error.WriteLine($"There was a problem {ex.Message}");
+                    FormatException(ex, Console.Error);
                 }
             }
         }
