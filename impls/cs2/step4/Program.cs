@@ -113,10 +113,21 @@ namespace uk.osric.mal {
             return Print(Eval(repl_env, Read(input)));
         }
 
-        public void Repl(string[] args) {
+
+        private void LoadStdLib(Env env) {
+            // Load standard lib native functions
             foreach ((MalSymbol key, MalFunc value) in Core.NS) {
-                repl_env.Set(key, new MalFuncHolder(value));
+                env.Set(key, new MalFuncHolder(value));
             }
+
+            // Load standard lib mal functions
+            foreach (string def in Core.Mal) {
+                Rep(def);
+            }
+        }
+
+        public void Repl(string[] args) {
+            LoadStdLib(repl_env);
 
             Readline readline = new();
 
@@ -128,29 +139,8 @@ namespace uk.osric.mal {
                     }
                 } catch (Exception ex) {
                     Console.Error.WriteLine($"There was a problem {ex.Message}");
-                    FormatException(ex, Console.Error);
+                    Console.Error.WriteLine(Printer.FormatException(ex));
                 }
-            }
-        }
-
-        private static void FormatException(Exception ex, TextWriter output) {
-            List<Exception> exceptions = new();
-
-            Exception? inner = ex;
-            while (inner != null) {
-                exceptions.Add(inner);
-                inner = ex.InnerException;
-            }
-
-            exceptions.Reverse();
-
-            for (int i = 0; i < exceptions.Count; i += 1) {
-                Exception e = exceptions[i];
-                if (i > 0) {
-                    output.WriteLine("Wrapped by");
-                }
-                output.WriteLine($"{e.GetType().FullName}: {ex.Message}");
-                output.WriteLine(e.StackTrace);
             }
         }
 

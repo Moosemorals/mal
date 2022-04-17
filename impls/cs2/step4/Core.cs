@@ -22,8 +22,8 @@ namespace uk.osric.mal {
             { new MalSymbol("="), l => AreEqual(l.Head, l.Tail.Head) ? IMalType.True : IMalType.False },
             { new MalSymbol(">"), l => ((MalNumber)l.Head).Value > ((MalNumber)l.Tail.Head).Value ? IMalType.True : IMalType.False },
             { new MalSymbol(">="), l => ((MalNumber)l.Head).Value >= ((MalNumber)l.Tail.Head).Value ? IMalType.True : IMalType.False },
-            { new MalSymbol("count"), l => new MalNumber(((MalList)l.Head).Count()) },
-            { new MalSymbol("empty?"), l => ((MalList)l.Head).IsEmpty ? IMalType.True : IMalType.False },
+            { new MalSymbol("count"), l => new MalNumber( l.Head is MalNil ? 0 : ((IMalSeq)l.Head).Count()) },
+            { new MalSymbol("empty?"), l => ((IMalSeq)l.Head).Any() ? IMalType.False : IMalType.True },
             { new MalSymbol("list"), l => new MalList(l) },
             { new MalSymbol("list?"), l => l.Head is MalList ? IMalType.True : IMalType.False },
             { new MalSymbol("pr-str"), l => new MalString(string.Join(" ", l.Select(m => Printer.PrStr(m, true)))) },
@@ -38,6 +38,9 @@ namespace uk.osric.mal {
             }},
         };
 
+        public static List<string> Mal = new() {
+            "(def! not (fn* (a) (if a false true)))",
+        };
     }
 
 }

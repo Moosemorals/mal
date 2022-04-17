@@ -121,7 +121,6 @@ namespace uk.osric.mal {
         }
     }
 
-
     internal class Scanner {
         private const string Specials = "\0 \t\r\n[]{}('\"`,;)";
         private int start = 0;
@@ -291,9 +290,7 @@ namespace uk.osric.mal {
         }
     }
 
-
     internal record Token(TokenType Type, string Lexeme);
-
 
     internal enum TokenType {
 

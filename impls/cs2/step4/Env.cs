@@ -11,14 +11,26 @@ namespace uk.osric.mal {
 
         private readonly Dictionary<MalSymbol, IMalType> data = new();
 
-        public Env(Env? outer) : this(outer, null, null) {}
+        public Env(Env? outer) : this(outer, null, null) { }
 
         public Env(Env? outer, IEnumerable<IMalType>? binds, IEnumerable<IMalType>? exprs) {
             this.outer = outer;
 
             if (binds != null && exprs != null) {
-                foreach ((IMalType name, IMalType expr) in binds.Zip(exprs)) {
-                    Set((MalSymbol)name, expr);
+                var b = binds.GetEnumerator();
+                var e = exprs.GetEnumerator();
+
+                while (b.MoveNext()) {
+                    var key = (MalSymbol)b.Current;
+                    if (key.Value == "&") {
+                        b.MoveNext();
+                        key = (MalSymbol)b.Current;
+                        data[key] = new MalList(e);
+                        return;
+                    }
+                    e.MoveNext();
+                    var value = e.Current;
+                    data[key] = value;
                 }
             }
         }
@@ -39,6 +51,9 @@ namespace uk.osric.mal {
         }
 
         public IMalType Get(MalSymbol key) {
+            if (key.Value.StartsWith(':')) {
+                return key;
+            }
             Env? e = Find(key);
             if (e != null) {
                 return e.data[key];

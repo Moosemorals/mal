@@ -63,8 +63,9 @@ namespace uk.osric.mal {
         }
     }
 
+    public interface IMalSeq : IEnumerable<IMalType>, IMalType {}
 
-    public class MalList : IEnumerable<IMalType>, IEquatable<MalList>, IMalType {
+    public class MalList : IMalSeq, IEquatable<IMalSeq> {
         private class Cell {
             public IMalType First { get; private init; }
             public Cell? Next { get; set; }
@@ -96,6 +97,19 @@ namespace uk.osric.mal {
             }
         }
 
+        internal MalList(IEnumerator<IMalType> list) {
+            Cell? x = null;
+            while (list.MoveNext()) {
+                if (x == null) {
+                    cons = new Cell(list.Current, null);
+                    x = cons;
+                } else {
+                    x.Next = new Cell(list.Current, null);
+                    x = x.Next;
+                }
+            }
+        }
+
         public static MalList Empty() => new MalList();
 
         public IMalType Head => cons?.First ?? IMalType.Nil;
@@ -117,9 +131,9 @@ namespace uk.osric.mal {
             return GetEnumerator();
         }
 
-        public bool Equals(MalList? other) => other != null && this.SequenceEqual(other);
+        public bool Equals(IMalSeq? other) => other != null && this.SequenceEqual(other);
 
-        public override bool Equals(object? obj) => this.Equals(obj as MalList);
+        public override bool Equals(object? obj) => this.Equals(obj as IMalSeq);
 
         public override int GetHashCode() {
             unchecked {
@@ -138,15 +152,15 @@ namespace uk.osric.mal {
         public bool IsEmpty => cons == null;
     }
 
-    public class MalVector : List<IMalType>, IEquatable<MalVector>, IMalType {
+    public class MalVector : List<IMalType>, IEquatable<IMalSeq>, IMalSeq {
 
         public MalVector() : base() {}
         public MalVector(IEnumerable<IMalType> list) : base(list) {}
 
 
-        public bool Equals(MalVector? other) => other != null && this.SequenceEqual(other);
+        public bool Equals(IMalSeq? other) => other != null && this.SequenceEqual(other);
 
-        public override bool Equals(object? obj) => this.Equals(obj as MalVector);
+        public override bool Equals(object? obj) => this.Equals(obj as IMalSeq);
 
         public override int GetHashCode() {
             unchecked {
