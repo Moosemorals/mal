@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace uk.osric.mal {
@@ -12,10 +13,58 @@ namespace uk.osric.mal {
     }
 
     public delegate IMalType MalFunc(MalList args);
+    public abstract class MalValueType : IMalType { }
 
-    public interface IMalSeq : IEnumerable<IMalType>, IMalType { }
+    public abstract class MalValueType<T> : MalValueType, IEquatable<MalValueType<T>> where T : notnull {
 
-    public class MalList : IMalSeq {
+        public T Value { get; protected set; }
+
+        public MalValueType(T Value) => this.Value = Value;
+
+        public bool Equals(MalValueType<T>? other) => other != null && Value.Equals(other.Value);
+
+        public override bool Equals(object? obj) =>
+        (obj != null && obj.GetType() == this.GetType())
+         ? Equals((MalValueType<T>)obj)
+          : false;
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string? ToString() => Value.ToString();
+
+        public static bool operator ==(MalValueType<T>? left, MalValueType<T>? right) {
+            if (left is null) {
+                if (right is null) {
+                    return true;
+                }
+                return false;
+            }
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(MalValueType<T>? left, MalValueType<T>? right) => !(left == right);
+    }
+
+    public class MalSymbol : MalValueType<string> {
+        public MalSymbol(string Value) : base(Value) { }
+    }
+
+    public class MalString : MalValueType<string> {
+        public MalString(string Value) : base(Value) { }
+    }
+
+    public class MalNumber : MalValueType<double> {
+        public MalNumber(double Value) : base(Value) { }
+        public static MalNumber Parse(string raw) {
+            if (double.TryParse(raw, out double value)) {
+                return new MalNumber(value);
+            }
+            throw new ArgumentException("Can't parse string value");
+        }
+    }
+
+
+    public class MalList : IEnumerable<IMalType>, IEquatable<MalList>, IMalType {
         private class Cell {
             public IMalType First { get; private init; }
             public Cell? Next { get; set; }
@@ -68,56 +117,49 @@ namespace uk.osric.mal {
             return GetEnumerator();
         }
 
+        public bool Equals(MalList? other) => other != null && this.SequenceEqual(other);
+
+        public override bool Equals(object? obj) => this.Equals(obj as MalList);
+
+        public override int GetHashCode() {
+            unchecked {
+                int hash = 17;
+                foreach (IMalType item in this) {
+                    hash = hash * 23 + item.GetHashCode();
+                }
+                return hash;
+            }
+        }
+
+        public override string? ToString() {
+            return base.ToString();
+        }
+
         public bool IsEmpty => cons == null;
     }
 
-    public class MalVector : List<IMalType>, IMalSeq { }
+    public class MalVector : List<IMalType>, IEquatable<MalVector>, IMalType {
+
+        public MalVector() : base() {}
+        public MalVector(IEnumerable<IMalType> list) : base(list) {}
+
+
+        public bool Equals(MalVector? other) => other != null && this.SequenceEqual(other);
+
+        public override bool Equals(object? obj) => this.Equals(obj as MalVector);
+
+        public override int GetHashCode() {
+            unchecked {
+                int hash = 17;
+                foreach (IMalType item in this) {
+                    hash = hash * 23 + item.GetHashCode();
+                }
+                return hash;
+            }
+        }
+    }
 
     public class MalHash : Dictionary<IMalType, IMalType>, IMalType { }
-
-    public class MalSymbol : IEquatable<MalSymbol>, IMalType {
-        public string Value { get; private set; }
-        public MalSymbol(string Value) => this.Value = Value;
-
-        public override bool Equals(object? obj) => this.Equals(obj as MalSymbol);
-
-        public override int GetHashCode() => Value.GetHashCode();
-
-        public override string? ToString() => Value;
-
-        public bool Equals(MalSymbol? other) => other != null && other.Value.Equals(Value);
-
-        public static bool operator ==(MalSymbol? left, MalSymbol? right) {
-            if (left is null) {
-                if (right is null) {
-                    return true;
-                }
-                return false;
-            }
-            return left.Equals(right);
-        }
-
-        public static bool operator !=(MalSymbol? left, MalSymbol? right) => !(left == right);
-    }
-
-    public class MalString : IMalType {
-        public string Value { get; private set; }
-        public MalString(string Value) => this.Value = Value;
-    }
-
-    public class MalNumber : IMalType {
-        public double Value { get; private set; }
-        public MalNumber(double Value) => this.Value = Value;
-
-        public MalNumber(string raw) {
-
-            if (double.TryParse(raw, out double d)) {
-                Value = d;
-            } else {
-                throw new ArgumentException("Not a number", nameof(raw));
-            }
-        }
-    }
 
     public class MalFuncHolder : IMalType {
         public MalFunc Value { get; private set; }

@@ -21,6 +21,16 @@ namespace uk.osric.mal {
 
         private readonly List<string> history = new();
 
+
+        public string? WaitForInput(string Prompt, bool basic) {
+            if (basic) {
+                Console.Out.Write(Prompt);
+                return Console.In.ReadLine();
+            } else {
+                return WaitForInput(Prompt);
+            }
+        }
+
         public string WaitForInput(string Prompt) {
             TextWriter Out = Console.Out;
             string display = "";

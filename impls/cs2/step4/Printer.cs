@@ -9,9 +9,9 @@ namespace uk.osric.mal {
 
         public static string PrStr(IMalType item, bool readably) {
             if (item is MalList l) {
-                return FormatSeq(l, "(", ")", readably);
+                return FormatList(l, readably);
             } else if (item is MalVector v) {
-                return FormatSeq(v, "[", "]", readably);
+                return FormatVector(v, readably);
             } else if (item is MalHash h) {
                 return FormatHash(h, readably);
             } else if (item is MalTrue) {
@@ -56,14 +56,20 @@ namespace uk.osric.mal {
             }
         }
 
-        private static string FormatSeq(IMalSeq seq, string open, string close, bool readably) {
+        private static string FormatList(MalList list, bool readably) {
             List<string> strings = new();
-            foreach (IMalType m in seq) {
+            foreach (IMalType m in list) {
                 strings.Add(PrStr(m, readably));
             }
-            return $"{open}{string.Join(" ", strings)}{close}";
+            return $"({string.Join(" ", strings)})";
         }
-
+        private static string FormatVector(MalVector vector, bool readably) {
+            List<string> strings = new();
+            foreach (IMalType m in vector) {
+                strings.Add(PrStr(m, readably));
+            }
+            return $"({string.Join(" ", strings)})";
+        }
         private static string FormatHash(MalHash hash, bool readably) {
             List<string> strings = new();
             foreach (var kv in hash) {

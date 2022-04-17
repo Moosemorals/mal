@@ -10,26 +10,19 @@ namespace uk.osric.mal {
 
         private readonly Env repl_env = new(null);
         private readonly Reader reader = new Reader();
-        private IMalType Read(string input) {
-            return reader.ReadStr(input);
-        }
 
         private IMalType EvalAst(IMalType ast, Env env) {
             if (ast is MalSymbol s) {
                 return env.Get(s);
             } else if (ast is MalList l) {
-                return new MalList(l.Select(m => Eval(m, env)));
+                return new MalList(l.Select(m => Eval(env, m)));
             } else if (ast is MalVector v) {
-                MalVector result = new MalVector();
-                for (int i = 0; i < v.Count; i += 1) {
-                    result.Add(Eval(v[i], env));
-                }
-                return result;
+                return new MalVector(v.Select(m => Eval(env, m)));
             } else if (ast is MalHash h) {
                 MalHash result = new();
                 foreach (var kv in h) {
                     IMalType key = kv.Key;
-                    IMalType value = Eval(kv.Value, env);
+                    IMalType value = Eval(env, kv.Value);
                     result.Add(key, value);
                 }
                 return result;
@@ -38,67 +31,78 @@ namespace uk.osric.mal {
             }
         }
 
-        private IMalType Apply(Env env, MalSymbol symbol, MalList rest) {
-            switch (symbol.Value) {
-                case "def!":
-                    return env.Set((MalSymbol)rest.Head, Eval(rest.Tail.Head, env));
-                case "let*": {
-                        Env inner = new Env(env);
-                        if (rest.Head is MalList bindingList) {
+        private IMalType Def(Env env, MalList rest) {
+            return env.Set((MalSymbol)rest.Head, Eval(env, rest.Tail.Head));
+        }
 
-                            while (!bindingList.IsEmpty) {
-                                MalSymbol key = (MalSymbol)bindingList.Head;
-                                bindingList = bindingList.Tail;
-                                IMalType value = bindingList.Head;
-                                bindingList = bindingList.Tail;
-                                inner.Set(key, Eval(value, inner));
-                            }
-                            return Eval(rest.Tail.Head, inner);
-                        } else if (rest.Head is MalVector bindingVector) {
-                            for (int i = 0; i < bindingVector.Count; i += 2) {
-                                MalSymbol key = (MalSymbol)bindingVector[i];
-                                IMalType value = bindingVector[i + 1];
-                                inner.Set(key, Eval(value, inner));
-                            }
-                            return Eval(rest.Tail.Head, inner);
-                        } else {
-                            throw new Exception("Unknown type for 'let*' bindings");
-                        }
+        private IMalType Let(Env env, MalList rest) {
+            Env inner = new Env(env);
+            if (rest.Head is MalList bindingList) {
+                // via https://stackoverflow.com/a/6888263
+                using (var iterator = bindingList.GetEnumerator()) {
+                    while (iterator.MoveNext()) {
+                        IMalType key = iterator.Current;
+                        IMalType value = iterator.MoveNext() ? iterator.Current : throw new ArgumentException("Bindings must come in paris");
+                        inner.Set((MalSymbol)key, Eval(inner, value));
                     }
-                case "do":
-                    return rest.Select(m => Eval(m, env)).Last();
-                case "if": {
-                        IMalType testResult = Eval(rest.Head, env);
-                        if (testResult != IMalType.Nil && testResult != IMalType.False) {
-                            return Eval(rest.Tail.Head, env);
-                        } else {
-                            return Eval(rest.Tail.Tail.Head, env);
-                        }
-                    }
-                case "fn*":
-                    return Eval(rest.Tail.Head, new Env(env, (MalList)rest.Head, rest.Tail.Tail));
-                default: {
-                        MalFuncHolder f = (MalFuncHolder)EvalAst(symbol, env);
-                        MalList r = (MalList)EvalAst(rest, env);
-                        return f.Apply(r);
-                    }
+                }
+                return Eval(inner, rest.Tail.Head);
+            } else if (rest.Head is MalVector bindingVector) {
+                for (int i = 0; i < bindingVector.Count; i += 2) {
+                    MalSymbol key = (MalSymbol)bindingVector[i];
+                    IMalType value = bindingVector[i + 1];
+                    inner.Set(key, Eval(inner, value));
+                }
+                return Eval(inner, rest.Tail.Head);
+            } else {
+                throw new Exception("Unknown type for 'let*' bindings");
             }
         }
 
-        private IMalType Eval(IMalType ast, Env env) {
+        private IMalType If(Env env, MalList rest) {
+            IMalType testResult = Eval(env, rest.Head);
+            if (testResult != IMalType.Nil && testResult != IMalType.False) {
+                return Eval(env, rest.Tail.Head);
+            } else {
+                return Eval(env, rest.Tail.Tail.Head);
+            }
+        }
+
+        private IMalType Func(Env env, MalList rest) {
+            return new MalFuncHolder(args => {
+                Env inner = new Env(env, (IEnumerable<IMalType>)rest.Head, args);
+                return Eval(inner, rest.Tail.Head);
+            });
+        }
+
+        private IMalType Call(Env env, MalList ast) {
+            MalList list = (MalList)EvalAst(ast, env);
+            MalFuncHolder f = (MalFuncHolder)list.Head;
+            return f.Apply(list.Tail);
+        }
+
+        private IMalType Eval(Env env, IMalType ast) {
             if (ast is MalList l) {
                 if (l.IsEmpty) {
                     return l;
                 }
+                return l.Head switch {
 
-                IMalType key = l.Head;
-                if (key is MalSymbol s) {
-                    return Apply(env, s, l.Tail);
-                }
-                throw new Exception("Couldn't apply list");
+                    MalSymbol { Value: "def!" } => Def(env, l.Tail),
+                    MalSymbol { Value: "do" } => l.Tail.Select(m => Eval(env, m)).Last(),
+                    MalSymbol { Value: "if" } => If(env, l.Tail),
+                    MalSymbol { Value: "let*" } => Let(env, l.Tail),
+                    MalSymbol { Value: "fn*" } => Func(env, l.Tail),
+
+                    _ => Call(env, l),
+                };
             } else {
                 return EvalAst(ast, env);
             }
+        }
+
+        private IMalType Read(string input) {
+            return reader.ReadStr(input);
         }
 
         private string Print(IMalType input) {
@@ -106,7 +110,7 @@ namespace uk.osric.mal {
         }
 
         private string Rep(string input) {
-            return Print(Eval(Read(input), repl_env));
+            return Print(Eval(repl_env, Read(input)));
         }
 
         public void Repl(string[] args) {
@@ -118,8 +122,10 @@ namespace uk.osric.mal {
 
             while (true) {
                 try {
-                    string input = readline.WaitForInput("user> ");
-                    Console.WriteLine(Rep(input));
+                    string? input = readline.WaitForInput("user> ", basic: true);
+                    if (input != null) {
+                        Console.WriteLine(Rep(input));
+                    }
                 } catch (Exception ex) {
                     Console.Error.WriteLine($"There was a problem {ex.Message}");
                     FormatException(ex, Console.Error);

@@ -101,7 +101,7 @@ namespace uk.osric.mal {
                     return new MalString(token.Lexeme);
                 case TokenType.SYMBOL:
                     if (NumberMatch.IsMatch(token.Lexeme)) {
-                        return new MalNumber(token.Lexeme);
+                        return MalNumber.Parse(token.Lexeme);
                     } else {
                         return new MalSymbol(token.Lexeme);
                     }
